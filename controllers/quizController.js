@@ -41,9 +41,6 @@ function safeParseJSON(data) {
   return [];
 }
 
-/* ===================================================== */
-/* SUBJECT DETECTION */
-/* ===================================================== */
 function detectSubject(text = "") {
   const keywords = [
     "javascript", "python", "java", "c++", "c#", "react",
@@ -57,9 +54,6 @@ function detectSubject(text = "") {
     : "academic";
 }
 
-/* ===================================================== */
-/* GENERATE LESSON */
-/* ===================================================== */
 exports.generateLesson = async (req, res) => {
   try {
     const { topic, level = "Beginner" } = req.body;
@@ -106,9 +100,6 @@ Format:
   }
 };
 
-/* ===================================================== */
-/* GENERATE QUESTIONS (WITH FULL EXPLANATION STRUCTURE) */
-/* ===================================================== */
 exports.generateQuestions = async (req, res) => {
   try {
     const { content, topic, count = 5 } = req.body;
@@ -242,10 +233,6 @@ STRICT RULES:
   }
 };
 
-/* ===================================================== */
-/* SUBMIT QUIZ */
-/* ===================================================== */
-
 exports.submitQuiz = async (req, res) => {
   const userId = req.userId;
 
@@ -268,11 +255,7 @@ exports.submitQuiz = async (req, res) => {
       activeSubmissions.delete(userId);
       return res.status(404).json({ error: "User not found" });
     }
-
-    /* ========================= */
-    /* GRADING + DETAILED RESULT */
-    /* ========================= */
-
+    
     const detailedResults = [];
 
     const grading = await Promise.all(
@@ -288,7 +271,6 @@ exports.submitQuiz = async (req, res) => {
           isCorrect = userAns === correctAns ? 1 : 0;
         }
 
-        /* ---------- TRUE/FALSE ---------- */
         else if (item.type === "tf") {
           isCorrect =
             normalizeAnswer(item.userAnswer) ===
@@ -297,7 +279,6 @@ exports.submitQuiz = async (req, res) => {
               : 0;
         }
 
-        /* ---------- WRITTEN ---------- */
         else if (item.type === "written") {
           const userNum = normalizeNumeric(item.userAnswer);
           const correctNum = normalizeNumeric(item.correctAnswer);
@@ -313,7 +294,6 @@ exports.submitQuiz = async (req, res) => {
           }
         }
 
-        /* ---------- CODE ---------- */
         else if (item.type === "code") {
           try {
             const studentOut = await executeCode(
@@ -336,7 +316,6 @@ exports.submitQuiz = async (req, res) => {
           }
         }
 
-        /* ---------- AUTO EXPLANATION IF WRONG ---------- */
         if (!isCorrect) {
           explanation = await generateExplanation(
             item.question,
@@ -359,10 +338,6 @@ exports.submitQuiz = async (req, res) => {
       })
     );
 
-    /* ========================= */
-    /* SCORE CALCULATION */
-    /* ========================= */
-
     const score = grading.reduce((a, b) => a + b, 0);
     const total = answers.length;
     const percent = total ? Math.round((score / total) * 100) : 0;
@@ -370,10 +345,6 @@ exports.submitQuiz = async (req, res) => {
     const earnedXP =
       percent >= 80 ? 20 :
         percent >= 50 ? 10 : 5;
-
-    /* ========================= */
-    /* STREAK */
-    /* ========================= */
 
     let newStreak = user.streak;
     const today = new Date();
@@ -388,10 +359,6 @@ exports.submitQuiz = async (req, res) => {
       if (diff === 1) newStreak += 1;
       else if (diff > 1) newStreak = 1;
     }
-
-    /* ========================= */
-    /* ATOMIC UPDATE */
-    /* ========================= */
 
     const updatedUser = await User.findByIdAndUpdate(
       user._id,
@@ -419,10 +386,6 @@ exports.submitQuiz = async (req, res) => {
       { returnDocument: "after" }
     );
 
-    /* ========================= */
-    /* LEVEL SYSTEM */
-    /* ========================= */
-
     const newLevel = Math.floor(updatedUser.xp / 100) + 1;
     if (newLevel !== updatedUser.level) {
       updatedUser.level = newLevel;
@@ -442,7 +405,7 @@ exports.submitQuiz = async (req, res) => {
       streak: updatedUser.streak,
       earnedXP,
       achievements: updatedUser.achievements,
-      detailedResults   // ⭐ IMPORTANT FIX
+      detailedResults
     });
 
   } catch (err) {
@@ -505,9 +468,6 @@ Rules:
   }
 }
 
-/* ===================================================== */
-/* AI GRADING */
-/* ===================================================== */
 async function gradeWithAI(question, modelAnswer, userAnswer) {
   if (!userAnswer?.trim()) return 0;
 
@@ -528,9 +488,6 @@ Student: ${userAnswer}
   }
 }
 
-/* ===================================================== */
-/* CODE EXECUTION (PISTON API) */
-/* ===================================================== */
 async function executeCode(language, code) {
   if (!code?.trim()) return "";
 
@@ -559,9 +516,6 @@ async function executeCode(language, code) {
   return (data.run.stdout || "").trim();
 }
 
-/* ===================================================== */
-/* STREAK SYSTEM */
-/* ===================================================== */
 function updateStreak(user) {
   const today = new Date();
 
@@ -579,9 +533,6 @@ function updateStreak(user) {
   user.lastQuizDate = today;
 }
 
-/* ===================================================== */
-/* ACHIEVEMENT SYSTEM */
-/* ===================================================== */
 function unlockAchievements(user) {
   const has = (name) =>
     user.achievements.some(a => a.name === name);
@@ -599,9 +550,6 @@ function unlockAchievements(user) {
     user.achievements.push({ name: "Level 10 Master" });
 }
 
-/* ===================================================== */
-/* GET HISTORY */
-/* ===================================================== */
 exports.getHistory = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
@@ -613,9 +561,6 @@ exports.getHistory = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* LEADERBOARD */
-/* ===================================================== */
 exports.getLeaderboard = async (req, res) => {
   try {
     const users = await User.find()
@@ -629,9 +574,6 @@ exports.getLeaderboard = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* WEEKLY LEADERBOARD */
-/* ===================================================== */
 exports.getWeeklyLeaderboard = async (req, res) => {
   try {
     const users = await User.find()
@@ -645,12 +587,6 @@ exports.getWeeklyLeaderboard = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* REGENERATE WEAK QUESTIONS */
-/* ===================================================== */
-/* ===================================================== */
-/* REGENERATE WEAK QUESTIONS (HARDENED VERSION) */
-/* ===================================================== */
 exports.generateWeakQuestions = async (req, res) => {
   try {
     const { topic } = req.body;
@@ -783,7 +719,7 @@ function normalizeAnswer(value) {
 
   return value
     .toString()
-    .replace(/[$,%\s]/g, "")   // remove $, %, spaces
+    .replace(/[$,%\s]/g, "")
     .toLowerCase()
     .trim();
 }
