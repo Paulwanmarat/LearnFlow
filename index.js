@@ -29,7 +29,10 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://learn-flow-wheat-theta.vercel.app"
+    ],
     credentials: true,
   },
 });
@@ -43,7 +46,10 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: [
+    "http://localhost:3000",
+    "https://learn-flow-wheat-theta.vercel.app"
+  ],
   credentials: true,
 }));
 
