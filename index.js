@@ -29,11 +29,18 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "https://learn-flow-wheat-theta.vercel.app",
-      "https://learn-flow-a7rpjdraa-paulpywts-projects.vercel.app"
-    ],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (
+        origin.startsWith("http://localhost:3000") ||
+        origin.includes("vercel.app")
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   },
 });
@@ -47,11 +54,18 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "https://learn-flow-wheat-theta.vercel.app",
-    "https://learn-flow-a7rpjdraa-paulpywts-projects.vercel.app"
-  ],
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (
+      origin === "http://localhost:3000" ||
+      origin.endsWith("vercel.app")
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 }));
 
