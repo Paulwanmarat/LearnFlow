@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  body {
+    @apply bg-brand-dark text-white font-sans antialiased selection:bg-brand-accent1 selection:text-white;
+    background: radial-gradient(circle at top right, #1e1b4b, #0a0f1c 40%, #000000 100%);
+    background-attachment: fixed;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+@layer components {
+  /* Premium Glassmorphism Utilities */
+  .glass-panel {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)];
+  }
+  
+  .glass-card {
+    @apply bg-white/[0.03] backdrop-blur-lg border border-white/10 shadow-xl rounded-2xl transition-all duration-300 hover:bg-white/[0.05] hover:border-white/20 hover:shadow-2xl;
+  }
+  
+  .glass-input {
+    @apply bg-white/[0.04] border border-white/10 focus:border-brand-accent1 focus:ring-1 focus:ring-brand-accent1 outline-none transition-all duration-300 placeholder:text-white/30 text-white rounded-xl;
+  }
+  
+  /* Premium Buttons */
+  .btn-primary {
+    @apply bg-gradient-to-r from-brand-accent1 to-brand-accent2 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl transition-all duration-300 backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  /* Custom scrollbar for deep dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-brand-dark;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-all;
+  }
+}
