@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata = {
-  title: "LearnFlow Enterprise",
+export const metadata: Metadata = {
+  title: {
+    default: "LearnFlow AI",
+    template: "%s | LearnFlow AI",
+  },
+  description: "AI-Powered Learning Platform",
 };
 
 export default function RootLayout({
