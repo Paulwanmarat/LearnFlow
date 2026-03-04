@@ -31,7 +31,8 @@ const io = new Server(server, {
   cors: {
     origin: [
       "http://localhost:3000",
-      "https://learn-flow-wheat-theta.vercel.app"
+      "https://learn-flow-wheat-theta.vercel.app",
+      "https://learn-flow-a7rpjdraa-paulpywts-projects.vercel.app"
     ],
     credentials: true,
   },
@@ -48,7 +49,8 @@ app.use(helmet());
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://learn-flow-wheat-theta.vercel.app"
+    "https://learn-flow-wheat-theta.vercel.app",
+    "https://learn-flow-a7rpjdraa-paulpywts-projects.vercel.app"
   ],
   credentials: true,
 }));
