@@ -321,6 +321,93 @@ export default function Dashboard() {
 
           </div>
         </motion.div>
+
+        {/* ================= TEAM SECTION ================= */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="glass-card p-10 space-y-10"
+        >
+          <div className="text-center space-y-3">
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+              Member of{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">
+                Saipanyarangsit School
+              </span>
+            </h2>
+            <p className="text-white/50">
+              Team <span className="font-semibold text-white">Return To Monkey</span>
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+
+            {/* MEMBER 1 */}
+            <motion.div
+              whileHover={{ y: -8 }}
+              className="bg-black/20 p-8 rounded-2xl border border-white/5 text-center group"
+            >
+              <div className="relative w-36 h-36 mx-auto mb-6 rounded-full overflow-hidden border-4 border-brand-accent1/40 shadow-[0_0_40px_rgba(99,102,241,0.3)] group-hover:scale-105 transition-transform duration-300">
+                <Image
+                  src="/1.png"
+                  alt="Phanyawat Wanmarat"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <h4 className="text-white font-semibold text-xl mb-2">
+                Phanyawat Wanmarat
+              </h4>
+              <p className="text-white/50 text-sm">Grade 11</p>
+            </motion.div>
+
+            {/* MEMBER 2 */}
+            <motion.div
+              whileHover={{ y: -8 }}
+              className="bg-black/20 p-8 rounded-2xl border border-white/5 text-center group"
+            >
+              <div className="relative w-36 h-36 mx-auto mb-6 rounded-full overflow-hidden border-4 border-brand-accent2/40 shadow-[0_0_40px_rgba(168,85,247,0.3)] group-hover:scale-105 transition-transform duration-300">
+                <Image
+                  src="/2.png"
+                  alt="Sher Youprayong"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <h4 className="text-white font-semibold text-xl mb-2">
+                Sher Youprayong
+              </h4>
+              <p className="text-white/50 text-sm">Grade 11</p>
+            </motion.div>
+
+            {/* MEMBER 3 */}
+            <motion.div
+              whileHover={{ y: -8 }}
+              className="bg-black/20 p-8 rounded-2xl border border-white/5 text-center group"
+            >
+              <div className="relative w-36 h-36 mx-auto mb-6 rounded-full overflow-hidden border-4 border-emerald-400/40 shadow-[0_0_40px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform duration-300">
+                <Image
+                  src="/3.png"
+                  alt="Panathorn Limthongkun"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <h4 className="text-white font-semibold text-xl mb-2">
+                Panathorn Limthongkun
+              </h4>
+              <p className="text-white/50 text-sm">Grade 11</p>
+            </motion.div>
+
+          </div>
+
+          <div className="pt-8 border-t border-white/10 text-center">
+            <p className="text-white/40 text-sm tracking-wide">
+              © 2026 Return To Monkey. All rights reserved.
+            </p>
+          </div>
+        </motion.div>
       </div>
     </ProtectedRoute>
   );
