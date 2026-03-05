@@ -20,7 +20,7 @@ interface User {
   learningTime?: number;
 }
 
-type Mode = "global" | "weekly" | "streak" | "country" | "quizzes" | "learning";
+type Mode = "global" | "weekly" | "streak" | "quizzes" | "learning";
 
 const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
 
@@ -28,7 +28,6 @@ export default function Leaderboard() {
   const [podium, setPodium] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [mode, setMode] = useState<Mode>("global");
-  const [country] = useState("United States");
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
@@ -50,7 +49,7 @@ export default function Leaderboard() {
       socket.off("leaderboardUpdate");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, country]);
+  }, [mode]);
 
   const fetchLeaderboard = async () => {
     try {
@@ -58,7 +57,6 @@ export default function Leaderboard() {
       let endpoint = "/leaderboard";
       if (mode === "weekly") endpoint = "/leaderboard/weekly";
       if (mode === "streak") endpoint = "/leaderboard/streak";
-      if (mode === "country") endpoint = `/leaderboard/country?country=${country}`;
       if (mode === "quizzes") endpoint = "/leaderboard/quizzes";
       if (mode === "learning") endpoint = "/leaderboard/learning-time";
 
@@ -123,7 +121,7 @@ export default function Leaderboard() {
         {/* MODE TOGGLES (Segmented Controls) */}
         <div className="flex justify-center mb-20 relative z-20">
           <div className="glass-panel p-1.5 rounded-2xl flex flex-wrap justify-center gap-1 w-full max-w-4xl mx-auto shadow-xl">
-            {(["global", "weekly", "streak", "country", "quizzes", "learning"] as Mode[]).map((type) => (
+            {(["global", "weekly", "streak", "quizzes", "learning"] as Mode[]).map((type) => (
               <button
                 key={type}
                 onClick={() => setMode(type)}
@@ -141,9 +139,9 @@ export default function Leaderboard() {
         {/* PODIUM */}
         {!loading && podium.length > 0 && (
           <div className="flex justify-center items-end gap-3 md:gap-8 mb-24 mt-10">
-            {podium[1] && <PodiumCard user={podium[1]} place="second" />}
-            {podium[0] && <PodiumCard user={podium[0]} place="first" />}
-            {podium[2] && <PodiumCard user={podium[2]} place="third" />}
+            {podium[1] && <PodiumCard user={podium[1]} place="second" mode={mode} />}
+            {podium[0] && <PodiumCard user={podium[0]} place="first" mode={mode} />}
+            {podium[2] && <PodiumCard user={podium[2]} place="third" mode={mode} />}
           </div>
         )}
 
@@ -220,14 +218,25 @@ export default function Leaderboard() {
   );
 }
 
-function PodiumCard({ user, place }: { user: User; place: "first" | "second" | "third" }) {
+function PodiumCard({ user, place, mode }: { user: User; place: "first" | "second" | "third"; mode: Mode }) {
   const isFirst = place === "first";
 
   const heightClass = isFirst ? "h-[340px]" : place === "second" ? "h-[300px]" : "h-[270px]";
   const rankNumber = isFirst ? "1" : place === "second" ? "2" : "3";
   const medal = isFirst ? "🥇" : place === "second" ? "🥈" : "🥉";
   const glowBorder = isFirst ? "border-yellow-400/50" : place === "second" ? "border-slate-300/50" : "border-amber-600/50";
-  const glowShadow = isFirst ? "shadow-[0_0_50px_rgba(250,204,21,0.25)]" : place === "second" ? "shadow-[0_0_40px_rgba(203,213,225,0.15)]" : "shadow-[0_0_40px_rgba(217,119,6,0.15)]";
+  const glowShadow = isFirst
+    ? "shadow-[0_0_50px_rgba(250,204,21,0.25)]"
+    : place === "second"
+    ? "shadow-[0_0_40px_rgba(203,213,225,0.15)]"
+    : "shadow-[0_0_40px_rgba(217,119,6,0.15)]";
+
+  const getMetric = () => {
+    if (mode === "streak") return `${user.streak ?? 0} 🔥`;
+    if (mode === "quizzes") return `${user.quizzes ?? 0} 📝`;
+    if (mode === "learning") return `${user.learningTime ?? 0} min 🧠`;
+    return `${user.xp ?? 0} XP`;
+  };
 
   return (
     <motion.div
@@ -263,11 +272,14 @@ function PodiumCard({ user, place }: { user: User; place: "first" | "second" | "
       </div>
 
       <div className="mt-auto mb-8 text-brand-accent1 font-black text-2xl md:text-3xl drop-shadow-[0_0_15px_rgba(99,102,241,0.6)]">
-        {user.xp} <span className="text-lg md:text-xl text-brand-accent1/70">XP</span>
+        {getMetric()}
       </div>
 
-      {/* Base glow reflection */}
-      <div className={`absolute bottom-0 w-full h-1 ${isFirst ? 'bg-yellow-400' : place === 'second' ? 'bg-slate-300' : 'bg-amber-600'} box-glow`}></div>
+      <div
+        className={`absolute bottom-0 w-full h-1 ${
+          isFirst ? "bg-yellow-400" : place === "second" ? "bg-slate-300" : "bg-amber-600"
+        } box-glow`}
+      ></div>
     </motion.div>
   );
 }

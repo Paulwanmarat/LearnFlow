@@ -1,9 +1,5 @@
 const User = require("../models/user");
 
-/* ===================================================== */
-/* 🔧 GENERIC BUILDER */
-/* ===================================================== */
-
 const buildLeaderboard = async ({
   sortField,
   secondarySort = "xp",
@@ -69,10 +65,6 @@ const buildLeaderboard = async ({
   };
 };
 
-/* ===================================================== */
-/* 🏆 GLOBAL */
-/* ===================================================== */
-
 exports.getLeaderboard = async (req, res) => {
   try {
     const data = await buildLeaderboard({
@@ -88,10 +80,6 @@ exports.getLeaderboard = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 };
-
-/* ===================================================== */
-/* ⚡ WEEKLY */
-/* ===================================================== */
 
 exports.getWeeklyLeaderboard = async (req, res) => {
   try {
@@ -110,10 +98,6 @@ exports.getWeeklyLeaderboard = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* 🔥 STREAK */
-/* ===================================================== */
-
 exports.getStreakLeaderboard = async (req, res) => {
   try {
     const data = await buildLeaderboard({
@@ -128,10 +112,6 @@ exports.getStreakLeaderboard = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch streak leaderboard" });
   }
 };
-
-/* ===================================================== */
-/* 🧠 MOST LEARNING */
-/* ===================================================== */
 
 exports.getLearningLeaderboard = async (req, res) => {
   try {
@@ -149,10 +129,6 @@ exports.getLearningLeaderboard = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* ⏳ LEARNING TIME */
-/* ===================================================== */
-
 exports.getLearningTimeLeaderboard = async (req, res) => {
   try {
     const data = await buildLeaderboard({
@@ -169,10 +145,6 @@ exports.getLearningTimeLeaderboard = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* 📝 QUIZZES */
-/* ===================================================== */
-
 exports.getQuizLeaderboard = async (req, res) => {
   try {
     const data = await buildLeaderboard({
@@ -188,10 +160,6 @@ exports.getQuizLeaderboard = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch quiz leaderboard" });
   }
 };
-
-/* ===================================================== */
-/* 🎯 SCORE */
-/* ===================================================== */
 
 exports.getScoreLeaderboard = async (req, res) => {
   try {
@@ -210,10 +178,6 @@ exports.getScoreLeaderboard = async (req, res) => {
   }
 };
 
-/* ===================================================== */
-/* 🎯 ACCURACY */
-/* ===================================================== */
-
 exports.getAccuracyLeaderboard = async (req, res) => {
   try {
     const data = await buildLeaderboard({
@@ -228,32 +192,5 @@ exports.getAccuracyLeaderboard = async (req, res) => {
   } catch (err) {
     console.error("Accuracy leaderboard error:", err.message);
     res.status(500).json({ error: "Failed to fetch accuracy leaderboard" });
-  }
-};
-
-/* ===================================================== */
-/* 🌍 COUNTRY */
-/* ===================================================== */
-
-exports.getCountryLeaderboard = async (req, res) => {
-  try {
-    const { country } = req.query;
-
-    if (!country) {
-      return res.status(400).json({ error: "Country required" });
-    }
-
-    const data = await buildLeaderboard({
-      sortField: "xp",
-      secondarySort: "streak",
-      minFilter: { country },
-      selectFields:
-        "username xp level streak country previousRank",
-    });
-
-    res.json(data);
-  } catch (err) {
-    console.error("Country leaderboard error:", err.message);
-    res.status(500).json({ error: "Failed to fetch country leaderboard" });
   }
 };
