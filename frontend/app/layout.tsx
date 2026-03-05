@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "LearnFlow AI",
-    template: "%s | LearnFlow AI",
+    default: "Cognivra Adaptive",
+    template: "%s | Cognivra Adaptive",
   },
   description: "AI-Powered Learning Platform",
 };
