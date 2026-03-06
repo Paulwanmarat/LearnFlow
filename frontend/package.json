@@ -11,6 +11,7 @@
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
     "@monaco-editor/react": "^4.7.0",
+    "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.6",
     "chart.js": "^4.5.1",
     "framer-motion": "^12.34.4",
