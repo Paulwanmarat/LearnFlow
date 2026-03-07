@@ -64,7 +64,7 @@ export default function LearningPage() {
             <span className="text-4xl">🧠</span>
           </div>
           <h1 className="text-5xl font-extrabold mb-4 tracking-tight">
-            LearnFlow AI <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Learning Lab</span>
+            Cognivra Adaptive AI <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Learning Lab</span>
           </h1>
           <p className="text-lg text-white/60 max-w-2xl mx-auto leading-relaxed">
             Input any topic and let our AI generate a comprehensive, personalized lesson plan instantly.

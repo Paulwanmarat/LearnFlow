@@ -15,10 +15,10 @@ export default function Navbar() {
       <div className="flex items-center gap-8">
         <Link href="/dashboard" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-xl bg-brand-accent1/20 border border-brand-accent1/50 flex items-center justify-center group-hover:bg-brand-accent1/40 transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)]">
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-brand-accent1 to-brand-accent2 leading-none mt-0.5">LF</span>
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-brand-accent1 to-brand-accent2 leading-none mt-0.5">CA</span>
           </div>
           <h2 className="text-xl font-extrabold tracking-tight text-white hidden sm:block">
-            LearnFlow
+            Cognivra Adaptive
           </h2>
         </Link>
         <nav className="hidden md:flex gap-2">
