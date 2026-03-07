@@ -275,7 +275,7 @@ export default function Dashboard() {
 
             <div>
               <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-                About <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Cognivra</span>
+                About <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Cognivra Adaptive</span>
               </h2>
               <p className="text-white/50 mt-3 text-lg">
                 Intelligent AI-Powered Adaptive Learning Platform
