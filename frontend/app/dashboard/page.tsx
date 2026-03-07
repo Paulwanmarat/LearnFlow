@@ -84,7 +84,7 @@ export default function Dashboard() {
     <ProtectedRoute>
       {levelUp && <Confetti />}
 
-      <div className="min-h-screen pt-24 pb-12 px-8 max-w-7xl mx-auto space-y-10 relative z-10">
+      <div className="min-h-screen pt-24 pb-12 px-8 max-w-7xl mx-auto space-y-10 relative z-10 md:ml-64">
 
         {/* HEADER */}
         <motion.div
@@ -265,8 +265,8 @@ export default function Dashboard() {
 
             <div className="relative w-full max-w-4xl aspect-video rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.25)] border border-white/10">
               <Image
-                src="/learnflow1.jpg"
-                alt="LearnFlow Logo"
+                src="/cognivra-logo.png"
+                alt="Cognivra Logo"
                 fill
                 className="object-cover"
                 priority
@@ -275,7 +275,7 @@ export default function Dashboard() {
 
             <div>
               <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-                About <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">LearnFlow</span>
+                About <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Cognivra</span>
               </h2>
               <p className="text-white/50 mt-3 text-lg">
                 Intelligent AI-Powered Adaptive Learning Platform
@@ -286,9 +286,9 @@ export default function Dashboard() {
 
           <p className="text-white/70 leading-relaxed text-lg">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2 font-semibold">
-              LearnFlow
+              Cognivra Adaptive
             </span>{" "}
-            is an AI-powered adaptive learning platform designed to personalize education.
+            is an AI powered adaptive learning platform designed to personalize education.
             It analyzes your quiz performance, tracks your progress, and dynamically adjusts
             question difficulty to strengthen weak areas while reinforcing mastered concepts.
           </p>
