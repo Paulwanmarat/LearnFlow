@@ -10,6 +10,7 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         heading: ['Outfit', 'sans-serif'],
+        display: ['Space Grotesk', 'sans-serif'],
       },
       colors: {
         glass: {

@@ -8,6 +8,7 @@ import ProgressBar from "@/components/ProgressBar";
 import Confetti from "react-confetti";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Navbar from "@/components/Navbar";
 import {
   LineChart,
   Line,
@@ -83,20 +84,21 @@ export default function Dashboard() {
   return (
     <ProtectedRoute>
       {levelUp && <Confetti />}
+      <Navbar />
 
-      <div className="min-h-screen pt-24 pb-12 px-8 max-w-7xl mx-auto space-y-10 relative z-10 md:ml-64">
+      <div className="min-h-screen pt-20 pb-12 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto space-y-8 relative z-10">
 
         {/* HEADER */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-between items-end"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3"
         >
           <div>
-            <h1 className="text-5xl font-extrabold mb-3">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-1 sm:mb-3 leading-tight">
               Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">{name || "Learner"}</span> 👑
             </h1>
-            <p className="text-white/60 text-lg">Here&apos;s your learning progress overview.</p>
+            <p className="text-white/60 text-sm sm:text-lg">Here&apos;s your learning progress overview.</p>
           </div>
         </motion.div>
 
@@ -105,12 +107,12 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-6"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6"
         >
           <StatCard title="Total XP" value={displayXp} color="text-indigo-400" />
-          <StatCard title="Current Level" value={level} color="text-emerald-400" />
-          <StatCard title="Day Streak 🔥" value={streak} color="text-orange-400" />
-          <StatCard title="Average Score" value={`${averageScore}%`} color="text-pink-400" />
+          <StatCard title="Level" value={level} color="text-emerald-400" />
+          <StatCard title="Streak 🔥" value={streak} color="text-orange-400" />
+          <StatCard title="Avg Score" value={`${averageScore}%`} color="text-pink-400" />
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -139,14 +141,14 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="lg:col-span-2 glass-card p-8 flex flex-col sm:flex-row gap-6 items-center justify-center relative overflow-hidden"
+            className="lg:col-span-2 glass-card p-6 sm:p-8 flex flex-col sm:flex-row gap-4 items-center justify-center relative overflow-hidden"
           >
             {/* Background decorative glow */}
             <div className="absolute w-[300px] h-[300px] bg-brand-accent1/20 blur-[80px] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
             <button
               onClick={() => router.push("/learning")}
-              className="w-full sm:w-auto btn-primary px-8 py-5 text-lg items-center justify-center flex gap-3 relative z-10"
+              className="w-full sm:w-auto btn-primary px-6 sm:px-8 py-4 sm:py-5 text-base sm:text-lg items-center justify-center flex gap-3 relative z-10"
             >
               <span>Start Learning</span>
               <span className="text-2xl">🚀</span>
@@ -154,7 +156,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => router.push("/leaderboard")}
-              className="w-full sm:w-auto btn-secondary px-8 py-5 text-lg items-center justify-center flex gap-3 relative z-10 border-brand-accent2/40 hover:border-brand-accent2/80 hover:bg-brand-accent2/10 shadow-[0_0_20px_rgba(168,85,247,0.1)]"
+              className="w-full sm:w-auto btn-secondary px-6 sm:px-8 py-4 sm:py-5 text-base sm:text-lg items-center justify-center flex gap-3 relative z-10 border-brand-accent2/40 hover:border-brand-accent2/80 hover:bg-brand-accent2/10 shadow-[0_0_20px_rgba(168,85,247,0.1)]"
             >
               <span>View Leaderboard</span>
               <span className="text-2xl">🏆</span>
@@ -293,9 +295,9 @@ export default function Dashboard() {
             question difficulty to strengthen weak areas while reinforcing mastered concepts.
           </p>
 
-          <div className="grid md:grid-cols-3 gap-6 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-4">
 
-            <div className="bg-black/20 p-6 rounded-2xl border border-white/5">
+            <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
               <h4 className="text-white font-semibold mb-2">📊 Performance Tracking</h4>
               <p className="text-white/50 text-sm">
                 Real-time analytics visualize your score trends, XP growth,
@@ -329,19 +331,31 @@ export default function Dashboard() {
           transition={{ delay: 0.6 }}
           className="glass-card p-10 space-y-10"
         >
-          <div className="text-center space-y-3">
+          <div className="text-center space-y-5 flex flex-col items-center">
+
+            {/* RTM LOGO */}
+            <div className="relative w-32 h-32 md:w-40 md:h-40">
+              <Image
+                src="/RTM.png"
+                alt="Return To Monkey Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+
             <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
               Member of{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">
                 Saipanyarangsit School
               </span>
             </h2>
+
             <p className="text-white/50">
               Team <span className="font-semibold text-white">Return To Monkey</span>
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
 
             {/* MEMBER 1 */}
             <motion.div

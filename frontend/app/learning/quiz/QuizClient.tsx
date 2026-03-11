@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import API from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
-
+import Confetti from "react-confetti";
+import * as Lucide from "lucide-react";
 
 interface Explanation {
     correct: string;
@@ -128,66 +129,105 @@ export default function QuizClient() {
 
     return (
         <ProtectedRoute>
-            <div className="relative min-h-screen text-white overflow-hidden">
+            {submitted && result && <Confetti recycle={false} numberOfPieces={500} gravity={0.15} />}
 
-                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#0b1120] via-[#1e1b4b] to-[#0b1120]" />
-                <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.15),transparent_40%)]" />
-
-                <div className="pt-28 pb-24 px-6 md:px-12 max-w-4xl mx-auto space-y-10">
-
-                    <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                        Quiz Mode 🧠
-                    </h1>
-
-                    {/* Progress */}
-                    {!submitted && (
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm text-white/50">
-                                <span>Question {currentIndex + 1}</span>
-                                <span>{questions.length}</span>
+            <div className="relative min-h-screen pt-24 pb-12 px-4 sm:px-8 max-w-5xl mx-auto space-y-12">
+                {/* Header */}
+                {!submitted && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex flex-col md:flex-row justify-between items-center gap-6 glass-card p-6 md:p-8"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-brand-accent1/10 rounded-xl border border-brand-accent1/20 text-brand-accent1 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                                <Lucide.Brain className="w-8 h-8" />
                             </div>
-                            <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                            <div>
+                                <h1 className="text-3xl font-extrabold tracking-tight">
+                                    Knowledge <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Check</span>
+                                </h1>
+                                <p className="text-white/50 text-sm mt-1">Topic: <span className="text-white font-medium">{topic}</span></p>
+                            </div>
+                        </div>
+
+                        {/* Progress */}
+                        <div className="flex-1 w-full max-w-sm ml-auto">
+                            <div className="flex justify-between text-sm font-semibold mb-2 uppercase tracking-wide">
+                                <span className="text-white/50">Progress</span>
+                                <span className="text-brand-accent1">{currentIndex + 1} / {questions.length}</span>
+                            </div>
+                            <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 relative">
                                 <motion.div
                                     initial={{ width: 0 }}
                                     animate={{ width: `${progress}%` }}
-                                    className="h-full bg-gradient-to-r from-indigo-400 to-purple-500"
+                                    transition={{ ease: "easeInOut", duration: 0.5 }}
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-brand-accent1 to-brand-accent2 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                                 />
                             </div>
                         </div>
-                    )}
+                    </motion.div>
+                )}
 
-                    {/* Question */}
-                    <AnimatePresence mode="wait">
-                        {currentQuestion && !submitted && (
-                            <motion.div
-                                key={currentIndex}
-                                initial={{ opacity: 0, x: 40 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -40 }}
-                                className="backdrop-blur-xl bg-white/5 border border-white/10 p-8 rounded-3xl shadow-2xl space-y-6"
-                            >
-                                <p className="text-xl font-medium leading-relaxed">
+                {/* Timer Bar */}
+                {!submitted && timerPerQuestion > 0 && (
+                    <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden border border-white/5 sticky top-[72px] z-40 backdrop-blur-md">
+                        <motion.div
+                            initial={{ width: "100%" }}
+                            animate={{ width: `${(timeLeft! / timerPerQuestion) * 100}%` }}
+                            transition={{ duration: 1, ease: "linear" }}
+                            className={`h-full ${timeLeft! <= 5 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"}`}
+                        />
+                    </div>
+                )}
+
+                {/* Question */}
+                <AnimatePresence mode="wait">
+                    {currentQuestion && !submitted && (
+                        <motion.div
+                            key={currentIndex}
+                            initial={{ opacity: 0, x: 20, scale: 0.98 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: -20, scale: 0.98 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="glass-card p-6 md:p-10 relative overflow-hidden space-y-8 min-h-[500px] flex flex-col"
+                        >
+                            {/* Decorative glow */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent1/10 blur-[80px] rounded-full pointer-events-none"></div>
+
+                            <div className="flex justify-between items-start gap-4">
+                                <h2 className="text-2xl md:text-3xl font-bold leading-relaxed text-white">
                                     {currentQuestion.question}
-                                </p>
+                                </h2>
+                                <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
+                                    {currentQuestion.type === "mcq" ? "Multiple Choice" :
+                                        currentQuestion.type === "tf" ? "True / False" :
+                                            currentQuestion.type === "written" ? "Written" : "Code"}
+                                </div>
+                            </div>
 
-                                {/* OPTIONS */}
-                                {(currentQuestion.type === "mcq" ||
-                                    currentQuestion.type === "tf") ? (
-                                    <div className="space-y-4">
+                            {/* OPTIONS */}
+                            <div className="flex-1">
+                                {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") ? (
+                                    <div className="grid grid-cols-1 gap-4">
                                         {currentQuestion.options?.map((opt, j) => {
-                                            const selectedOption =
-                                                selected[currentIndex] === opt;
+                                            const selectedOption = selected[currentIndex] === opt;
 
-                                            let style = "border-white/10 hover:bg-white/5";
+                                            let style = "border-white/10 hover:border-white/30 hover:bg-white-[0.02]";
+                                            let selectedStyle = "text-brand-accent1 border-brand-accent1";
 
                                             if (revealed) {
                                                 if (opt === currentQuestion.answer) {
-                                                    style = "border-emerald-400 bg-emerald-500/10";
+                                                    style = "border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]";
+                                                    selectedStyle = "text-emerald-400 border-emerald-400";
                                                 } else if (selectedOption && !isCorrect) {
-                                                    style = "border-rose-400 bg-rose-500/10";
+                                                    style = "border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]";
+                                                    selectedStyle = "text-rose-400 border-rose-400";
+                                                } else {
+                                                    style = "border-white/5 opacity-50";
                                                 }
                                             } else if (selectedOption) {
-                                                style = "border-indigo-400 bg-indigo-500/20";
+                                                style = "border-brand-accent1 bg-brand-accent1/10 shadow-[0_0_20px_rgba(99,102,241,0.1)] translate-x-2";
                                             }
 
                                             return (
@@ -199,9 +239,22 @@ export default function QuizClient() {
                                                         copy[currentIndex] = opt;
                                                         setSelected(copy);
                                                     }}
-                                                    className={`w-full text-left p-4 rounded-xl border transition ${style}`}
+                                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 relative overflow-hidden group ${style}`}
                                                 >
-                                                    {opt}
+                                                    {/* Background hover effect */}
+                                                    <span className="absolute inset-0 w-full h-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></span>
+
+                                                    <div className="flex items-center gap-4 relative z-10">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${selectedOption || (revealed && opt === currentQuestion.answer)
+                                                            ? selectedStyle
+                                                            : "border-white/20 text-transparent"
+                                                            }`}>
+                                                            {(selectedOption || (revealed && opt === currentQuestion.answer)) && (
+                                                                <div className="w-3 h-3 bg-current rounded-full"></div>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-lg font-medium tracking-wide">{opt}</span>
+                                                    </div>
                                                 </button>
                                             );
                                         })}
@@ -223,175 +276,192 @@ export default function QuizClient() {
                                 <AnimatePresence>
                                     {revealed && (
                                         <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            className="overflow-hidden rounded-2xl border"
+                                            style={{
+                                                backgroundColor: isCorrect ? "rgba(16, 185, 129, 0.05)" : "rgba(244, 63, 94, 0.05)",
+                                                borderColor: isCorrect ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)"
+                                            }}
                                         >
-                                            {isCorrect ? (
-                                                <>
-                                                    <p className="text-emerald-400 font-semibold">
-                                                        ✅ Correct!
-                                                    </p>
-                                                    {typeof currentQuestion.explanation === "object"
-                                                        ? currentQuestion.explanation.correct
-                                                        : currentQuestion.explanation ||
-                                                        "Great understanding."}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <p className="text-rose-400 font-semibold">
-                                                        ❌ Incorrect
-                                                    </p>
-                                                    <p className="text-emerald-400">
-                                                        Correct Answer: {currentQuestion.answer}
-                                                    </p>
-
-                                                    {typeof currentQuestion.explanation === "object" && (
+                                            <div className="p-6 space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    {isCorrect ? (
                                                         <>
-                                                            <p className="text-white/70">
-                                                                {currentQuestion.explanation.correct}
-                                                            </p>
-                                                            {currentQuestion.explanation.incorrect?.[
-                                                                selected[currentIndex]
-                                                            ] && (
-                                                                    <p className="text-rose-300">
-                                                                        {
-                                                                            currentQuestion.explanation.incorrect[
-                                                                            selected[currentIndex]
-                                                                            ]
-                                                                        }
-                                                                    </p>
-                                                                )}
+                                                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                                                <Lucide.Check className="w-5 h-5" />
+                                                            </div>
+                                                            <h3 className="text-xl font-bold text-emerald-400">Excellent!</h3>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400">
+                                                                <Lucide.X className="w-5 h-5" />
+                                                            </div>
+                                                            <h3 className="text-xl font-bold text-rose-400">Not quite right</h3>
                                                         </>
                                                     )}
-                                                </>
-                                            )}
+                                                </div>
+
+                                                <div className="pl-11 space-y-4">
+                                                    {!isCorrect && (
+                                                        <div className="p-4 rounded-xl bg-black/40 border border-white/5">
+                                                            <p className="text-sm text-white/50 uppercase tracking-widest font-semibold mb-1">Correct Answer</p>
+                                                            <p className="text-lg text-white font-medium">{currentQuestion.answer}</p>
+                                                        </div>
+                                                    )}
+
+                                                    <p className="text-white/70">
+                                                        {typeof currentQuestion.explanation === "object"
+                                                            ? currentQuestion.explanation.correct
+                                                            : currentQuestion.explanation ||
+                                                            "Great understanding."}
+                                                    </p>
+
+                                                    {typeof currentQuestion.explanation === "object" && !isCorrect && currentQuestion.explanation.incorrect?.[selected[currentIndex]] && (
+                                                        <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 mt-2">
+                                                            <p className="text-sm text-rose-400 uppercase tracking-widest font-semibold mb-1">Why your answer was incorrect</p>
+                                                            <p className="text-white/80 leading-relaxed">
+                                                                {currentQuestion.explanation.incorrect[selected[currentIndex]]}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
 
                                 <button
                                     onClick={handleRevealOrNext}
-                                    disabled={!selected[currentIndex]?.trim()}
-                                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold shadow-lg disabled:opacity-50"
+                                    disabled={!selected[currentIndex]?.trim() && !revealed}
+                                    className="w-full relative group overflow-hidden rounded-2xl p-[2px] mt-8"
                                 >
-                                    {!revealed
-                                        ? "Submit Answer"
-                                        : currentIndex === questions.length - 1
-                                            ? "Finish Quiz"
-                                            : "Next →"}
+                                    <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow"></span>
+                                    <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
+                                        <span className="text-lg font-bold text-white group-hover:text-white transition-colors">
+                                            {!revealed
+                                                ? "Check Answer"
+                                                : currentIndex === questions.length - 1
+                                                    ? "Finish Quiz"
+                                                    : "Next Question"}
+                                        </span>
+                                        {revealed && (
+                                            <Lucide.ArrowRight className="w-5 h-5 text-white" />
+                                        )}
+                                    </div>
                                 </button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* RESULTS + FULL REVIEW */}
-                    {submitted && result && (
-                        <div className="space-y-10 pt-10">
-
-                            {/* Header */}
-                            <div className="text-center space-y-4">
-                                <h2 className="text-4xl font-bold">🎉 Quiz Completed!</h2>
-
-                                <p className="text-3xl font-bold text-indigo-400">
-                                    {result.score} / {result.total}
-                                </p>
-
-                                <p className="text-white/50">
-                                    {result.percent}% Accuracy
-                                </p>
                             </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                            {/* FULL QUESTION REVIEW */}
-                            <div className="space-y-6">
-                                {questions.map((q, index) => {
-                                    const userAnswer = selected[index];
-                                    const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                {/* RESULTS + FULL REVIEW */}
+                {submitted && result && (
+                    <div className="space-y-10 pt-10">
 
-                                    return (
-                                        <div
-                                            key={index}
-                                            className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4"
-                                        >
-                                            {/* Question */}
-                                            <p className="text-lg font-semibold">
-                                                {index + 1}. {q.question}
+                        {/* Header */}
+                        <div className="text-center space-y-4">
+                            <h2 className="text-4xl font-bold">🎉 Quiz Completed!</h2>
+
+                            <p className="text-3xl font-bold text-indigo-400">
+                                {result.score} / {result.total}
+                            </p>
+
+                            <p className="text-white/50">
+                                {result.percent}% Accuracy
+                            </p>
+                        </div>
+
+                        {/* FULL QUESTION REVIEW */}
+                        <div className="space-y-6">
+                            {questions.map((q, index) => {
+                                const userAnswer = selected[index];
+                                const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+
+                                return (
+                                    <div
+                                        key={index}
+                                        className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4"
+                                    >
+                                        {/* Question */}
+                                        <p className="text-lg font-semibold">
+                                            {index + 1}. {q.question}
+                                        </p>
+
+                                        {/* User Answer */}
+                                        <div>
+                                            <p className="text-sm text-white/50">Your Answer:</p>
+                                            <p className={correct ? "text-emerald-400" : "text-rose-400"}>
+                                                {userAnswer || "No answer provided"}
                                             </p>
+                                        </div>
 
-                                            {/* User Answer */}
+                                        {/* Correct Answer */}
+                                        {!correct && (
                                             <div>
-                                                <p className="text-sm text-white/50">Your Answer:</p>
-                                                <p className={correct ? "text-emerald-400" : "text-rose-400"}>
-                                                    {userAnswer || "No answer provided"}
+                                                <p className="text-sm text-white/50">Correct Answer:</p>
+                                                <p className="text-emerald-400">
+                                                    {q.answer}
                                                 </p>
                                             </div>
+                                        )}
 
-                                            {/* Correct Answer */}
-                                            {!correct && (
-                                                <div>
-                                                    <p className="text-sm text-white/50">Correct Answer:</p>
-                                                    <p className="text-emerald-400">
-                                                        {q.answer}
-                                                    </p>
-                                                </div>
-                                            )}
+                                        {/* Explanation */}
+                                        {q.explanation && (
+                                            <div className="pt-2 border-t border-white/10">
+                                                <p className="text-sm text-white/50 mb-1">Explanation:</p>
 
-                                            {/* Explanation */}
-                                            {q.explanation && (
-                                                <div className="pt-2 border-t border-white/10">
-                                                    <p className="text-sm text-white/50 mb-1">Explanation:</p>
-
-                                                    {typeof q.explanation === "string" ? (
-                                                        <p className="text-white/70">{q.explanation}</p>
-                                                    ) : (
-                                                        <>
-                                                            <p className="text-white/70">
-                                                                {q.explanation.correct}
-                                                            </p>
-
-                                                            {!correct &&
-                                                                q.explanation.incorrect?.[userAnswer] && (
-                                                                    <p className="text-rose-300 mt-1">
-                                                                        {
-                                                                            q.explanation.incorrect[userAnswer]
-                                                                        }
-                                                                    </p>
-                                                                )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* Status Badge */}
-                                            <div className="pt-2">
-                                                {correct ? (
-                                                    <span className="text-emerald-400 font-semibold">
-                                                        ✅ Correct
-                                                    </span>
+                                                {typeof q.explanation === "string" ? (
+                                                    <p className="text-white/70">{q.explanation}</p>
                                                 ) : (
-                                                    <span className="text-rose-400 font-semibold">
-                                                        ❌ Incorrect
-                                                    </span>
+                                                    <>
+                                                        <p className="text-white/70">
+                                                            {q.explanation.correct}
+                                                        </p>
+
+                                                        {!correct &&
+                                                            q.explanation.incorrect?.[userAnswer] && (
+                                                                <p className="text-rose-300 mt-1">
+                                                                    {
+                                                                        q.explanation.incorrect[userAnswer]
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                    </>
                                                 )}
                                             </div>
+                                        )}
+
+                                        {/* Status Badge */}
+                                        <div className="pt-2">
+                                            {correct ? (
+                                                <span className="text-emerald-400 font-semibold">
+                                                    ✅ Correct
+                                                </span>
+                                            ) : (
+                                                <span className="text-rose-400 font-semibold">
+                                                    ❌ Incorrect
+                                                </span>
+                                            )}
                                         </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Back Button */}
-                            <div className="text-center">
-                                <button
-                                    onClick={() => router.push("/dashboard")}
-                                    className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/10 transition"
-                                >
-                                    Return to Dashboard
-                                </button>
-                            </div>
-
+                                    </div>
+                                );
+                            })}
                         </div>
-                    )}
-                </div>
+
+                        {/* Back Button */}
+                        <div className="text-center">
+                            <button
+                                onClick={() => router.push("/dashboard")}
+                                className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/10 transition"
+                            >
+                                Return to Dashboard
+                            </button>
+                        </div>
+
+                    </div>
+                )}
             </div>
         </ProtectedRoute>
     );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import API from "../../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
 
 interface Question {
   question: string;
@@ -73,6 +74,17 @@ export default function Adaptive() {
     setSubmitted(true);
   };
 
+  const handleRevealOrNext = () => {
+    if (!revealed) {
+      setRevealed(true);
+    } else if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setRevealed(false);
+    } else {
+      submitQuiz();
+    }
+  };
+
   const currentQuestion = questions[currentIndex];
 
   const isCorrect =
@@ -84,215 +96,374 @@ export default function Adaptive() {
       ? 0
       : ((currentIndex + 1) / questions.length) * 100;
 
+  const scorePercent = result ? result.percent : 0;
+  const scoreLabel =
+    scorePercent >= 90 ? "Outstanding!" :
+      scorePercent >= 70 ? "Great Work!" :
+        scorePercent >= 50 ? "Good Effort!" : "Keep Practicing!";
+  const scoreColor =
+    scorePercent >= 90 ? "text-emerald-400" :
+      scorePercent >= 70 ? "text-brand-accent1" :
+        scorePercent >= 50 ? "text-amber-400" : "text-rose-400";
+
   return (
     <ProtectedRoute>
       <div className="relative min-h-screen text-white overflow-hidden">
 
-        {/* Background */}
+        {/* ═══ Background ═══ */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#0b1120] via-[#1e1b4b] to-[#0b1120]" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.15),transparent_40%)]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_80%,rgba(168,85,247,0.1),transparent_40%)]" />
 
-        <div className="pt-28 pb-24 px-6 md:px-12 max-w-4xl mx-auto space-y-14 relative z-10">
+        <div className="pt-28 pb-24 px-4 sm:px-6 md:px-12 max-w-4xl mx-auto space-y-10 relative z-10">
 
-          {/* HEADER */}
-          <div className="text-center space-y-4">
-            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              Adaptive AI Training
+          {/* ═══ HEADER ═══ */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-center space-y-4"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-brand-accent1 font-semibold uppercase tracking-widest mb-4">
+              <Lucide.Brain className="w-4 h-4" />
+              AI-Powered
+            </div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
+              Adaptive Training
             </h1>
-            <p className="text-white/50 text-lg">
-              Smart practice based on your weak areas
+            <p className="text-white/40 text-base sm:text-lg max-w-lg mx-auto">
+              Intelligent practice that targets your weak areas and adapts to your skill level
             </p>
-          </div>
+          </motion.div>
 
-          {/* INPUT MODE */}
+          {/* ═══ INPUT MODE ═══ */}
           {questions.length === 0 && !submitted && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-8 space-y-6 backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl shadow-xl"
+              transition={{ delay: 0.15, duration: 0.5 }}
+              className="glass-card p-6 sm:p-10 space-y-8 relative overflow-hidden"
             >
-              <textarea
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="Paste topics you struggled with..."
-                className="w-full p-5 rounded-2xl bg-black/30 border border-white/10 min-h-[160px]"
-              />
+              {/* Decorative glow */}
+              <div className="absolute -top-20 -right-20 w-60 h-60 bg-brand-accent1/10 blur-[100px] rounded-full pointer-events-none"></div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-bold uppercase tracking-widest text-white/50 flex items-center gap-2">
+                  <Lucide.Target className="w-4 h-4 text-brand-accent1" />
+                  Topic or Weak Areas
+                </label>
+                <textarea
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Describe what you want to practice - e.g. 'Binary trees, recursion, and dynamic programming'"
+                  className="glass-input w-full p-5 rounded-2xl min-h-[140px] text-base leading-relaxed resize-none"
+                />
+              </div>
 
               <button
                 onClick={generateAdaptive}
                 disabled={loading || !topic.trim()}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold shadow-lg"
+                className="w-full relative group overflow-hidden rounded-2xl p-[2px] disabled:opacity-40"
               >
-                {loading ? "Generating..." : "Start Adaptive Practice 🚀"}
+                <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow"></span>
+                <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
+                  {loading ? (
+                    <>
+                      <Lucide.Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-lg font-bold">Generating Questions...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lucide.Sparkles className="w-5 h-5" />
+                      <span className="text-lg font-bold">Start Adaptive Practice</span>
+                    </>
+                  )}
+                </div>
               </button>
             </motion.div>
           )}
 
-          {/* QUIZ MODE */}
+          {/* ═══ QUIZ MODE ═══ */}
           {!submitted && currentQuestion && (
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="space-y-8"
-            >
-              {/* Progress */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-white/50">
-                  <span>Question {currentIndex + 1}</span>
-                  <span>{questions.length}</span>
+            <>
+              {/* Progress Header */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel px-6 py-4 rounded-2xl"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-brand-accent1/20 border border-brand-accent1/30 flex items-center justify-center">
+                    <Lucide.Zap className="w-6 h-6 text-brand-accent1" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-white">Question {currentIndex + 1} <span className="text-white/30">of {questions.length}</span></p>
+                    <p className="text-white/40 text-sm">Difficulty: {currentQuestion.difficulty || "Auto"}</p>
+                  </div>
                 </div>
-                <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-                  <motion.div
-                    animate={{ width: `${progress}%` }}
-                    className="h-full bg-gradient-to-r from-indigo-400 to-purple-500"
-                  />
+
+                <div className="flex-1 w-full max-w-xs ml-auto">
+                  <div className="flex justify-between text-xs font-semibold mb-1.5 uppercase tracking-wide">
+                    <span className="text-white/40">Progress</span>
+                    <span className="text-brand-accent1">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-black/40 h-2.5 rounded-full overflow-hidden border border-white/5">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ ease: "easeInOut", duration: 0.5 }}
+                      className="h-full bg-gradient-to-r from-brand-accent1 to-brand-accent2 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                    />
+                  </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Question Card */}
-              <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-8 rounded-3xl shadow-2xl space-y-6">
-                <p className="text-xl font-medium">
-                  {currentQuestion.question}
-                </p>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentIndex}
+                  initial={{ opacity: 0, x: 30, scale: 0.98 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -30, scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="glass-card p-6 sm:p-10 relative overflow-hidden space-y-8"
+                >
+                  {/* Decorative glow */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent1/10 blur-[80px] rounded-full pointer-events-none"></div>
 
-                {/* OPTIONS */}
-                {(currentQuestion.type === "mcq" ||
-                  currentQuestion.type === "tf") ? (
-                  <div className="space-y-4">
-                    {currentQuestion.options?.map((opt, j) => {
-                      const selectedOption =
-                        selected[currentIndex] === opt;
-
-                      let style = "border-white/10 hover:bg-white/5";
-
-                      if (revealed) {
-                        if (opt === currentQuestion.answer) {
-                          style = "border-emerald-400 bg-emerald-500/10";
-                        } else if (selectedOption && !isCorrect) {
-                          style = "border-rose-400 bg-rose-500/10";
-                        }
-                      } else if (selectedOption) {
-                        style = "border-indigo-400 bg-indigo-500/20";
-                      }
-
-                      return (
-                        <button
-                          key={j}
-                          disabled={revealed}
-                          onClick={() => {
-                            const copy = [...selected];
-                            copy[currentIndex] = opt;
-                            setSelected(copy);
-                          }}
-                          className={`w-full text-left p-4 rounded-xl border transition ${style}`}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
+                  <div className="flex justify-between items-start gap-4">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold leading-relaxed text-white">
+                      {currentQuestion.question}
+                    </h2>
+                    <div className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
+                      {currentQuestion.type === "mcq" ? "Multiple Choice" :
+                        currentQuestion.type === "tf" ? "True / False" :
+                          currentQuestion.type === "written" ? "Written" : "Code"}
+                    </div>
                   </div>
-                ) : (
-                  <textarea
-                    disabled={revealed}
-                    value={selected[currentIndex] || ""}
-                    onChange={(e) => {
-                      const copy = [...selected];
-                      copy[currentIndex] = e.target.value;
-                      setSelected(copy);
-                    }}
-                    className="w-full p-5 rounded-2xl bg-black/30 border border-white/10 min-h-[150px]"
-                  />
-                )}
 
-                {/* Explanation */}
-                <AnimatePresence>
-                  {revealed && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3"
-                    >
-                      {isCorrect ? (
-                        <>
-                          <p className="text-emerald-400 font-semibold">
-                            ✅ Correct!
-                          </p>
-                          <p className="text-white/70">
-                            {currentQuestion.explanation?.correct ||
-                              "Excellent understanding."}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-rose-400 font-semibold">
-                            ❌ Incorrect
-                          </p>
-                          <p className="text-emerald-400">
-                            Correct Answer: {currentQuestion.answer}
-                          </p>
-                          <p className="text-white/70">
-                            {currentQuestion.explanation?.incorrect?.[
-                              selected[currentIndex]
-                            ] ||
-                              currentQuestion.explanation?.correct ||
-                              "Review this concept carefully."}
-                          </p>
-                        </>
+                  {/* OPTIONS */}
+                  <div className="space-y-4">
+                    {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {currentQuestion.options?.map((opt, j) => {
+                          const selectedOption = selected[currentIndex] === opt;
+
+                          let style = "border-white/10 hover:border-white/30";
+                          let indicatorStyle = "border-white/20 text-transparent";
+
+                          if (revealed) {
+                            if (opt === currentQuestion.answer) {
+                              style = "border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]";
+                              indicatorStyle = "text-emerald-400 border-emerald-400";
+                            } else if (selectedOption && !isCorrect) {
+                              style = "border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]";
+                              indicatorStyle = "text-rose-400 border-rose-400";
+                            } else {
+                              style = "border-white/5 opacity-40";
+                            }
+                          } else if (selectedOption) {
+                            style = "border-brand-accent1 bg-brand-accent1/10 shadow-[0_0_20px_rgba(99,102,241,0.1)]";
+                            indicatorStyle = "text-brand-accent1 border-brand-accent1";
+                          }
+
+                          return (
+                            <button
+                              key={j}
+                              disabled={revealed}
+                              onClick={() => {
+                                const copy = [...selected];
+                                copy[currentIndex] = opt;
+                                setSelected(copy);
+                              }}
+                              className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 relative overflow-hidden group ${style}`}
+                            >
+                              <span className="absolute inset-0 w-full h-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></span>
+                              <div className="flex items-center gap-4 relative z-10">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${indicatorStyle}`}>
+                                  {(selectedOption || (revealed && opt === currentQuestion.answer)) && (
+                                    <div className="w-3 h-3 bg-current rounded-full"></div>
+                                  )}
+                                </div>
+                                <span className="text-lg font-medium tracking-wide">{opt}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <textarea
+                        disabled={revealed}
+                        value={selected[currentIndex] || ""}
+                        onChange={(e) => {
+                          const copy = [...selected];
+                          copy[currentIndex] = e.target.value;
+                          setSelected(copy);
+                        }}
+                        placeholder="Type your answer here..."
+                        className="glass-input w-full p-5 rounded-2xl min-h-[150px] text-base resize-none"
+                      />
+                    )}
+                  </div>
+
+                  {/* Explanation */}
+                  <AnimatePresence>
+                    {revealed && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="overflow-hidden rounded-2xl border"
+                        style={{
+                          backgroundColor: isCorrect ? "rgba(16, 185, 129, 0.05)" : "rgba(244, 63, 94, 0.05)",
+                          borderColor: isCorrect ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)"
+                        }}
+                      >
+                        <div className="p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            {isCorrect ? (
+                              <>
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                  <Lucide.Check className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-xl font-bold text-emerald-400">Excellent!</h3>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400">
+                                  <Lucide.X className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-xl font-bold text-rose-400">Not quite right</h3>
+                              </>
+                            )}
+                          </div>
+
+                          <div className="pl-11 space-y-4">
+                            {!isCorrect && (
+                              <div className="p-4 rounded-xl bg-black/40 border border-white/5">
+                                <p className="text-sm text-white/50 uppercase tracking-widest font-semibold mb-1">Correct Answer</p>
+                                <p className="text-lg text-white font-medium">{currentQuestion.answer}</p>
+                              </div>
+                            )}
+
+                            <p className="text-white/70">
+                              {isCorrect
+                                ? (currentQuestion.explanation?.correct || "Excellent understanding.")
+                                : (currentQuestion.explanation?.incorrect?.[selected[currentIndex]]
+                                  || currentQuestion.explanation?.correct
+                                  || "Review this concept carefully.")
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Action Button */}
+                  <button
+                    onClick={handleRevealOrNext}
+                    disabled={!selected[currentIndex]?.trim() && !revealed}
+                    className="w-full relative group overflow-hidden rounded-2xl p-[2px] disabled:opacity-40"
+                  >
+                    <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow"></span>
+                    <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
+                      <span className="text-lg font-bold text-white">
+                        {!revealed
+                          ? "Check Answer"
+                          : currentIndex === questions.length - 1
+                            ? "Finish Training"
+                            : "Next Question"}
+                      </span>
+                      {revealed && (
+                        <Lucide.ArrowRight className="w-5 h-5 text-white" />
                       )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Buttons */}
-                {!revealed ? (
-                  <button
-                    onClick={() => setRevealed(true)}
-                    disabled={!selected[currentIndex]?.trim()}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold"
-                  >
-                    Submit Answer
+                    </div>
                   </button>
-                ) : currentIndex === questions.length - 1 ? (
-                  <button
-                    onClick={submitQuiz}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold"
-                  >
-                    Finish Quiz
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setCurrentIndex(currentIndex + 1);
-                      setRevealed(false);
-                    }}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold"
-                  >
-                    Next →
-                  </button>
-                )}
-              </div>
-            </motion.div>
+                </motion.div>
+              </AnimatePresence>
+            </>
           )}
 
-          {/* RESULTS + FULL REVIEW */}
+          {/* ═══ RESULTS + FULL REVIEW ═══ */}
           {submitted && result && (
-            <div className="space-y-10">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              className="space-y-10"
+            >
+              {/* Score Header */}
+              <div className="glass-card p-8 sm:p-12 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-80 bg-brand-accent1/10 blur-[120px] rounded-full pointer-events-none"></div>
 
-              <div className="text-center space-y-3">
-                <h2 className="text-4xl font-bold">
-                  🎉 Training Complete
-                </h2>
-                <p className="text-3xl font-bold text-indigo-400">
-                  {result.score} / {result.total}
-                </p>
-                <p className="text-white/50">
-                  {result.percent}% Accuracy
-                </p>
+                <div className="relative space-y-6">
+                  <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-brand-accent1 to-brand-accent2 flex items-center justify-center shadow-[0_0_40px_rgba(99,102,241,0.3)]">
+                    <Lucide.Trophy className="w-10 h-10 text-white" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white">Training Complete!</h2>
+                    <p className={`text-xl font-bold ${scoreColor}`}>{scoreLabel}</p>
+                  </div>
+
+                  {/* Score Ring */}
+                  <div className="flex items-center justify-center gap-8">
+                    <div className="relative w-32 h-32">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" strokeWidth="6" stroke="rgba(255,255,255,0.05)" fill="none" />
+                        <circle
+                          cx="50" cy="50" r="42" strokeWidth="6" fill="none"
+                          stroke="url(#scoreGradient)"
+                          strokeLinecap="round"
+                          strokeDasharray={`${scorePercent * 2.64} 264`}
+                        />
+                        <defs>
+                          <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#6366f1" />
+                            <stop offset="100%" stopColor="#a855f7" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-extrabold text-white">{result.score}</span>
+                        <span className="text-sm text-white/40">/ {result.total}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-left space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                          <Lucide.Check className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-white/40">Correct</p>
+                          <p className="text-lg font-bold text-emerald-400">{result.score}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                          <Lucide.X className="w-4 h-4 text-rose-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-white/40">Incorrect</p>
+                          <p className="text-lg font-bold text-rose-400">{result.total - result.score}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* FULL QUESTION REVIEW */}
-              <div className="space-y-6">
+              {/* Question Review */}
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-white/80 flex items-center gap-2">
+                  <Lucide.ListChecks className="w-5 h-5 text-brand-accent1" />
+                  Question Review
+                </h3>
+                <p className="text-sm text-white/40">Review each question and learn from your mistakes</p>
+              </div>
+
+              <div className="space-y-4">
                 {questions.map((q, index) => {
                   const userAnswer = selected[index];
                   const correct =
@@ -300,61 +471,84 @@ export default function Adaptive() {
                     q.answer.trim().toLowerCase();
 
                   return (
-                    <div
+                    <motion.div
                       key={index}
-                      className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={`p-6 rounded-2xl border space-y-4 ${correct
+                        ? "bg-emerald-500/5 border-emerald-500/15"
+                        : "bg-rose-500/5 border-rose-500/15"
+                        }`}
                     >
-                      <p className="font-semibold">
-                        {index + 1}. {q.question}
-                      </p>
-
-                      <p className={correct ? "text-emerald-400" : "text-rose-400"}>
-                        Your Answer: {userAnswer || "No answer"}
-                      </p>
-
-                      {!correct && (
-                        <p className="text-emerald-400">
-                          Correct Answer: {q.answer}
+                      <div className="flex items-start gap-3">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${correct ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                          }`}>
+                          {correct ? <Lucide.Check className="w-4 h-4" /> : <Lucide.X className="w-4 h-4" />}
+                        </div>
+                        <p className="text-lg font-semibold text-white">
+                          {index + 1}. {q.question}
                         </p>
-                      )}
+                      </div>
 
-                      {q.explanation?.correct && (
-                        <p className="text-white/70">
-                          {q.explanation.correct}
-                        </p>
-                      )}
+                      <div className="pl-10 space-y-3">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5">
+                            <p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-1">Your Answer</p>
+                            <p className={`font-medium ${correct ? "text-emerald-400" : "text-rose-400"}`}>
+                              {userAnswer || "No answer provided"}
+                            </p>
+                          </div>
+                          {!correct && (
+                            <div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5">
+                              <p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-1">Correct Answer</p>
+                              <p className="font-medium text-emerald-400">{q.answer}</p>
+                            </div>
+                          )}
+                        </div>
 
-                      {!correct &&
-                        q.explanation?.incorrect?.[userAnswer] && (
-                          <p className="text-rose-300">
+                        {q.explanation?.correct && (
+                          <p className="text-white/60 text-sm leading-relaxed">{q.explanation.correct}</p>
+                        )}
+
+                        {!correct && q.explanation?.incorrect?.[userAnswer] && (
+                          <p className="text-rose-300/80 text-sm leading-relaxed italic">
                             {q.explanation.incorrect[userAnswer]}
                           </p>
                         )}
-                    </div>
+                      </div>
+                    </motion.div>
                   );
                 })}
               </div>
 
-              <div className="flex gap-6 justify-center pt-6">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <button
                   onClick={() => {
                     setQuestions([]);
                     setSubmitted(false);
                     setResult(null);
+                    setTopic("");
                   }}
-                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500"
+                  className="relative group overflow-hidden rounded-2xl p-[2px]"
                 >
-                  Try Again
+                  <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow"></span>
+                  <div className="relative bg-brand-dark px-8 py-4 rounded-[14px] flex items-center justify-center gap-2 transition-all group-hover:bg-opacity-0">
+                    <Lucide.RotateCcw className="w-5 h-5" />
+                    <span className="font-bold">Train Again</span>
+                  </div>
                 </button>
 
                 <button
                   onClick={() => router.push("/dashboard")}
-                  className="px-8 py-4 rounded-2xl border border-white/20"
+                  className="btn-secondary px-8 py-4 rounded-2xl flex items-center justify-center gap-2"
                 >
-                  Back to Dashboard
+                  <Lucide.LayoutDashboard className="w-5 h-5" />
+                  <span className="font-bold">Dashboard</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

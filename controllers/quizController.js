@@ -142,6 +142,8 @@ STRICT RULES:
   - No A/B/C/D literal options
   - Explanation must explain why correct is correct
   - Must explain why EACH wrong option is wrong
+- For TF (True/False):
+  - "answer" MUST be exactly "True" or "False" in English. Do NOT translate to any other language (e.g. no "ไม่ใช่" or "ใช่").
 `;
 
     let questions = [];
@@ -208,6 +210,12 @@ STRICT RULES:
 
         if (q.type === "tf") {
           q.options = ["True", "False"];
+          // Normalise Thai or incorrect translations back to English True/False just in case
+          if (q.answer === "ไม่ใช่" || q.answer?.toLowerCase() === "false") {
+             q.answer = "False";
+          } else if (q.answer === "ใช่" || q.answer?.toLowerCase() === "true") {
+             q.answer = "True";
+          }
         }
 
         questions.push(q);
