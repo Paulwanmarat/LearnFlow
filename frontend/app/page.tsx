@@ -60,7 +60,7 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen flex overflow-hidden bg-[#020617]">
-      
+
       {/* BACKGROUND BLOBS - Tuned to Cognivra Palette */}
       <div className="absolute w-[600px] h-[600px] bg-indigo-600/20 blur-[120px] rounded-full -top-40 -left-40 animate-blob mix-blend-screen pointer-events-none"></div>
       <div className="absolute w-[600px] h-[600px] bg-cyan-500/10 blur-[120px] rounded-full -bottom-40 -right-40 animate-blob mix-blend-screen pointer-events-none" style={{ animationDelay: '2s' }}></div>
@@ -70,7 +70,7 @@ export default function Home() {
       <div className="hidden lg:flex w-1/2 flex-col justify-center items-center px-10 text-white relative z-10">
         <div className="animate-fade-in-up w-full max-w-2xl flex flex-col items-center text-center">
           <Image
-            src="/cognivra-logo.png"
+            src="/Cognivra.png"
             alt="Cognivra Adaptive Logo"
             width={1600}
             height={1600}
@@ -78,7 +78,7 @@ export default function Home() {
             priority
           />
           <p className="mt-6 text-indigo-200/60 tracking-[0.2em] uppercase text-sm font-light">
-            Next-Generation Adaptive Learning
+            Next Generation Adaptive Learning
           </p>
         </div>
       </div>
