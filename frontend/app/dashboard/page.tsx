@@ -151,7 +151,7 @@ export default function Dashboard() {
               className="w-full sm:w-auto btn-primary px-6 sm:px-8 py-4 sm:py-5 text-base sm:text-lg items-center justify-center flex gap-3 relative z-10"
             >
               <span>Start Learning</span>
-              <span className="text-2xl">🚀</span>
+              <span className="text-2xl">🎓</span>
             </button>
 
             <button
