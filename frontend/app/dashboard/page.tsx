@@ -267,7 +267,7 @@ export default function Dashboard() {
 
             <div className="relative w-full max-w-4xl aspect-video rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.25)] border border-white/10">
               <Image
-                src="/cognivra-logo.png"
+                src="/Cognivra.png"
                 alt="Cognivra Logo"
                 fill
                 className="object-cover"
