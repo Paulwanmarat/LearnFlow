@@ -5,6 +5,23 @@ const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { Resend } = require("resend");
 const User = require("../models/user");
+/* =====================================================
+ * 🛡  PROTECT MIDDLEWARE (inlined)
+ * =====================================================*/
+const protect = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Not authorised, no token" });
+  }
+  try {
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ success: false, message: "Not authorised, token invalid" });
+  }
+};
 
 const router = express.Router();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -17,7 +34,6 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-// Short-lived token to carry Google profile data to the complete-profile page
 const generateSetupToken = (data) => {
   return jwt.sign({ ...data, _setup: true }, process.env.JWT_SECRET, { expiresIn: "15m" });
 };
@@ -31,8 +47,6 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // Must exactly match the Authorised redirect URI in Google Cloud Console:
-      // https://learnflow-3rig.onrender.com/auth/google/callback
       callbackURL: `${process.env.BACKEND_URL}/auth/google/callback`,
     },
     async (_accessToken, _refreshToken, profile, done) => {
@@ -43,13 +57,11 @@ passport.use(
           return done(new Error("No email returned from Google"), null);
         }
 
-        // Find existing user — match by googleId first, then by email
         const user = await User.findOne({
           $or: [{ googleId: profile.id }, { email }],
         });
 
         if (user) {
-          // Existing user — link googleId if they signed up via email/password before
           if (!user.googleId) {
             user.googleId = profile.id;
             if (!user.avatar || user.avatar === "https://i.imgur.com/6VBx3io.png") {
@@ -57,11 +69,9 @@ passport.use(
             }
             await user.save({ validateBeforeSave: false });
           }
-          // Return the real DB user — they go straight to the dashboard
           return done(null, { _type: "existing", user });
         }
 
-        // Brand-new Google user — don't create yet, carry profile data to setup page
         return done(null, {
           _type: "pending",
           googleId: profile.id,
@@ -77,10 +87,9 @@ passport.use(
   )
 );
 
-// Passport serialize/deserialize — only used for the OAuth handshake, not for sessions
 passport.serializeUser((payload, done) => {
   if (payload._type === "existing") return done(null, { _type: "existing", id: payload.user._id });
-  done(null, payload); // pending — serialize the whole object
+  done(null, payload);
 });
 
 passport.deserializeUser(async (payload, done) => {
@@ -92,7 +101,7 @@ passport.deserializeUser(async (payload, done) => {
       return done(err, null);
     }
   }
-  done(null, payload); // pending — pass through
+  done(null, payload);
 });
 
 /* ===================================================== */
@@ -104,7 +113,7 @@ router.get(
   "/google",
   passport.authenticate("google", {
     scope: ["profile", "email"],
-    prompt: "select_account", // always show the account picker
+    prompt: "select_account",
   })
 );
 
@@ -124,12 +133,10 @@ router.get(
       const payload = req.user;
 
       if (payload._type === "existing") {
-        // Known user — issue full JWT, send straight to dashboard
         const token = generateToken(payload.user._id);
         return res.redirect(`${process.env.FRONTEND_URL}?token=${token}`);
       }
 
-      // New user — issue a 15-min setup token, send to profile completion page
       const setupToken = generateSetupToken({
         googleId: payload.googleId,
         email: payload.email,
@@ -148,8 +155,6 @@ router.get(
 /* ===================================================== */
 /* ✅ COMPLETE GOOGLE PROFILE                            */
 /* POST /auth/google/complete                            */
-/* Body: { setupToken, username, country, password,      */
-/*         confirmPassword }                             */
 /* ===================================================== */
 
 router.post("/google/complete", async (req, res) => {
@@ -160,7 +165,6 @@ router.post("/google/complete", async (req, res) => {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    // Verify the setup token
     let decoded;
     try {
       decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
@@ -172,7 +176,6 @@ router.post("/google/complete", async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid setup token" });
     }
 
-    // Validate username
     const usernameRegex = /^[a-zA-Z0-9._]{4,20}$/;
     if (!usernameRegex.test(username.trim())) {
       return res.status(400).json({
@@ -181,7 +184,6 @@ router.post("/google/complete", async (req, res) => {
       });
     }
 
-    // Validate password
     if (password.length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
     }
@@ -190,7 +192,6 @@ router.post("/google/complete", async (req, res) => {
       return res.status(400).json({ success: false, message: "Passwords do not match" });
     }
 
-    // Check username & email aren't already taken
     const existing = await User.findOne({
       $or: [{ username: username.trim() }, { email: decoded.email }, { googleId: decoded.googleId }],
     });
@@ -199,11 +200,9 @@ router.post("/google/complete", async (req, res) => {
       if (existing.username === username.trim()) {
         return res.status(409).json({ success: false, message: "Username already taken" });
       }
-      // Email or googleId already registered — they should just log in
       return res.status(409).json({ success: false, message: "An account with this Google email already exists. Please sign in." });
     }
 
-    // Create the user
     const user = await User.create({
       username: username.trim(),
       email: decoded.email,
@@ -279,7 +278,6 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
-    // Google-only accounts have no password
     if (!user.password) {
       return res.status(400).json({
         success: false,
@@ -311,7 +309,6 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     const user = await User.findOne({ email });
-    // Always return success — never reveal if email exists
     if (!user || (!user.password && user.googleId)) {
       return res.json({ success: true, message: "If that email exists, a reset link has been sent" });
     }
@@ -320,7 +317,7 @@ router.post("/forgot-password", async (req, res) => {
     const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
 
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
@@ -401,6 +398,116 @@ router.post("/reset-password", async (req, res) => {
   } catch (err) {
     console.error("Reset password error:", err.message);
     res.status(500).json({ success: false, message: "Password reset failed" });
+  }
+});
+
+/* ===================================================== */
+/* 👤 UPDATE PROFILE                                     */
+/* PUT /api/auth/profile                                 */
+/* ===================================================== */
+
+router.put("/profile", protect, async (req, res) => {
+  try {
+    const { username, country, avatar } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (username !== undefined) {
+      const trimmed = username.trim();
+      const usernameRegex = /^[a-zA-Z0-9._]{4,20}$/;
+      if (!usernameRegex.test(trimmed)) {
+        return res.status(400).json({
+          success: false,
+          message: "Username must be 4–20 characters, letters/numbers/. _ only",
+        });
+      }
+      if (trimmed !== user.username) {
+        const taken = await User.findOne({ username: trimmed });
+        if (taken) {
+          return res.status(409).json({ success: false, message: "Username already taken" });
+        }
+      }
+      user.username = trimmed;
+    }
+
+    if (country !== undefined) {
+      user.country = country.toUpperCase();
+    }
+
+    if (avatar !== undefined) {
+      const isValidUrl = avatar.startsWith("http://") || avatar.startsWith("https://");
+      const isBase64 = avatar.startsWith("data:image/");
+      if (avatar && !isValidUrl && !isBase64) {
+        return res.status(400).json({ success: false, message: "Invalid avatar format" });
+      }
+      user.avatar = avatar;
+    }
+
+    await user.save({ validateBeforeSave: false });
+
+    res.json({ success: true, message: "Profile updated", user });
+  } catch (err) {
+    console.error("Profile update error:", err.message);
+    res.status(500).json({ success: false, message: err.message || "Server error" });
+  }
+});
+
+/* ===================================================== */
+/* 🔑 CHANGE PASSWORD                                    */
+/* PUT /api/auth/change-password                         */
+/* ===================================================== */
+
+router.put("/change-password", protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ success: false, message: "New password is required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
+
+    const user = await User.findById(req.user.id).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.password) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, message: "Current password is required" });
+      }
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Current password is incorrect" });
+      }
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Change password error:", err.message);
+    res.status(500).json({ success: false, message: err.message || "Server error" });
+  }
+});
+
+/* ===================================================== */
+/* 🗑  DELETE ACCOUNT                                    */
+/* DELETE /api/auth/account                              */
+/* ===================================================== */
+
+router.delete("/account", protect, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.user.id);
+    res.json({ success: true, message: "Account deleted" });
+  } catch (err) {
+    console.error("Delete account error:", err.message);
+    res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 });
 
