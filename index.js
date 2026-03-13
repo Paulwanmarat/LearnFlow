@@ -123,7 +123,10 @@ io.on("connection", (socket) => {
 /* 🛣  ROUTES                                            */
 /* ===================================================== */
 
-app.use("/api/auth", authRoutes);      // also handles /api/auth/google + /api/auth/google/callback
+app.use("/api/auth", authRoutes);
+// Google redirects to /auth/google/callback (no /api prefix) — must match
+// the Authorised redirect URI in Google Cloud Console exactly
+app.use("/auth", authRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);

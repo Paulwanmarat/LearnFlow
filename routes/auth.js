@@ -28,7 +28,8 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // Must exactly match the Authorized redirect URI in Google Cloud Console
+      // Must exactly match the Authorised redirect URI in Google Cloud Console:
+      // https://learnflow-3rig.onrender.com/auth/google/callback
       callbackURL: `${process.env.BACKEND_URL}/auth/google/callback`,
     },
     async (_accessToken, _refreshToken, profile, done) => {
