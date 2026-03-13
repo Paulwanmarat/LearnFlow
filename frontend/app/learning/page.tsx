@@ -17,36 +17,35 @@ export default function LearningPage() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
-  const [timerPerQuestion, setTimerPerQuestion] = useState(0);
+  const [timerHours, setTimerHours] = useState(0);
+  const [timerMinutes, setTimerMinutes] = useState(0);
+  const [timerSeconds, setTimerSeconds] = useState(0);
 
   const router = useRouter();
 
+  const totalTimerSeconds = timerHours * 3600 + timerMinutes * 60 + timerSeconds;
+
   const generateLesson = async () => {
     if (!topic.trim()) return;
-
     setLoading(true);
     setLesson(null);
-
     try {
       const res = await API.post("/quiz/lesson", { topic });
       setLesson(res.data);
     } catch {
       alert("Failed to generate lesson");
     }
-
     setLoading(false);
   };
 
   const startQuiz = () => {
     if (!lesson) return;
-
     const params = new URLSearchParams({
       summary: lesson.summary,
       topic,
       count: questionCount.toString(),
-      timer: timerPerQuestion.toString(),
+      timer: totalTimerSeconds.toString(),
     });
-
     router.push(`/learning/quiz?${params.toString()}`);
   };
 
@@ -87,7 +86,6 @@ export default function LearningPage() {
               className="flex-1 p-5 glass-input text-lg tracking-wide placeholder:text-white/20"
               onKeyDown={(e) => e.key === 'Enter' && generateLesson()}
             />
-
             <button
               onClick={generateLesson}
               disabled={loading || !topic.trim()}
@@ -118,7 +116,6 @@ export default function LearningPage() {
               className="space-y-8"
             >
               <div className="glass-card p-10 relative overflow-hidden">
-                {/* Decorative glow */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent2/10 blur-[80px] rounded-full pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-accent1/5 blur-[80px] rounded-full pointer-events-none"></div>
 
@@ -175,31 +172,97 @@ export default function LearningPage() {
                   <p className="text-white/50 text-base">Configure your challenge parameters and test your knowledge.</p>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto z-10">
-                  <div className="flex-1 md:w-32">
-                    <label className="block text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider text-center md:text-left">Qs</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={questionCount}
-                      onChange={(e) => setQuestionCount(Number(e.target.value))}
-                      className="w-full p-4 glass-input font-bold text-center text-xl"
-                    />
+                <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto z-10">
+                  {/* Question Count */}
+                  <div className="w-full md:w-auto space-y-3">
+                    <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider text-center md:text-left">
+                      Number of Questions
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setQuestionCount((v) => Math.max(1, v - 1))}
+                        className="w-11 h-11 rounded-xl glass-input flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all text-xl font-bold flex-shrink-0"
+                      >
+                        −
+                      </button>
+                      <div className="w-16 glass-input rounded-xl px-2 py-3 text-center font-extrabold text-2xl text-white tracking-wide">
+                        {questionCount}
+                      </div>
+                      <button
+                        onClick={() => setQuestionCount((v) => Math.min(20, v + 1))}
+                        className="w-11 h-11 rounded-xl glass-input flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all text-xl font-bold flex-shrink-0"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="flex justify-between gap-1">
+                      {[5, 10, 15, 20].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setQuestionCount(n)}
+                          className={`text-xs font-bold px-3 py-1 rounded-lg transition-all ${questionCount === n
+                            ? "bg-brand-accent1/20 text-brand-accent1 border border-brand-accent1/30"
+                            : "text-white/30 hover:text-white/60"
+                            }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="flex-1 md:w-44">
-                    <label className="block text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider text-center md:text-left">Timer / Q</label>
-                    <select
-                      value={timerPerQuestion}
-                      onChange={(e) => setTimerPerQuestion(Number(e.target.value))}
-                      className="w-full p-4 glass-input appearance-none bg-[#0a0f1c] hover:bg-[#111827] font-bold text-center cursor-pointer text-lg"
-                    >
-                      <option value={0}>No Timer</option>
-                      <option value={20}>20s</option>
-                      <option value={40}>40s</option>
-                      <option value={60}>60s</option>
-                    </select>
+                  {/* Timer HH:MM:SS */}
+                  <div className="w-full md:w-auto">
+                    <label className="block text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider text-center">
+                      Timer / Question
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {/* Hours */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-white/30 mb-1 uppercase tracking-widest">HH</span>
+                        <select
+                          value={timerHours}
+                          onChange={(e) => setTimerHours(Number(e.target.value))}
+                          className="w-20 p-3 glass-input appearance-none bg-[#0a0f1c] hover:bg-[#111827] font-bold text-center cursor-pointer text-lg"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <span className="text-white/30 font-bold text-2xl pb-1">:</span>
+
+                      {/* Minutes */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-white/30 mb-1 uppercase tracking-widest">MM</span>
+                        <select
+                          value={timerMinutes}
+                          onChange={(e) => setTimerMinutes(Number(e.target.value))}
+                          className="w-20 p-3 glass-input appearance-none bg-[#0a0f1c] hover:bg-[#111827] font-bold text-center cursor-pointer text-lg"
+                        >
+                          {Array.from({ length: 60 }, (_, i) => (
+                            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <span className="text-white/30 font-bold text-2xl pb-1">:</span>
+
+                      {/* Seconds */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-white/30 mb-1 uppercase tracking-widest">SS</span>
+                        <select
+                          value={timerSeconds}
+                          onChange={(e) => setTimerSeconds(Number(e.target.value))}
+                          className="w-20 p-3 glass-input appearance-none bg-[#0a0f1c] hover:bg-[#111827] font-bold text-center cursor-pointer text-lg"
+                        >
+                          {Array.from({ length: 60 }, (_, i) => (
+                            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

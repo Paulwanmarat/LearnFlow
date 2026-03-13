@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import API from "../../utils/api";
@@ -23,6 +23,7 @@ export default function Adaptive() {
   const router = useRouter();
 
   const [topic, setTopic] = useState("");
+  const [questionCount, setQuestionCount] = useState(5);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,6 +31,58 @@ export default function Adaptive() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [quizSessionId] = useState(() => crypto.randomUUID());
+  const submittingRef = useRef(false);
+
+  /* ================= TIMER STATE ================= */
+  const [timerHours, setTimerHours] = useState(0);
+  const [timerMinutes, setTimerMinutes] = useState(0);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const timerPerQuestion = timerHours * 3600 + timerMinutes * 60 + timerSeconds;
+
+  const formatTime = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+  };
+
+  const timerColor =
+    timeLeft !== null && timeLeft <= 10
+      ? {
+        badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse",
+        bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]",
+      }
+      : timeLeft !== null && timeLeft <= 30
+        ? {
+          badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",
+          bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
+        }
+        : {
+          badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",
+          bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]",
+        };
+
+  /* ================= TIMER EFFECT ================= */
+  useEffect(() => {
+    if (timerPerQuestion <= 0 || submitted || questions.length === 0) return;
+
+    setTimeLeft(timerPerQuestion);
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (!prev) return timerPerQuestion;
+        if (prev <= 1) {
+          handleRevealOrNext();
+          return timerPerQuestion;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentIndex, revealed, questions.length]);
 
   /* ================= GENERATE ================= */
   const generateAdaptive = async () => {
@@ -42,6 +95,7 @@ export default function Adaptive() {
     try {
       const res = await API.post("/quiz/regenerate-weak", {
         topic: topic.trim(),
+        count: questionCount,
       });
 
       setQuestions(res.data);
@@ -57,21 +111,30 @@ export default function Adaptive() {
 
   /* ================= SUBMIT ================= */
   const submitQuiz = async () => {
-    const formatted = questions.map((q, i) => ({
-      question: q.question,
-      type: q.type,
-      correctAnswer: q.answer,
-      userAnswer: selected[i],
-      topic: "Learn Flow Adaptive Training",
-      difficulty: q.difficulty || 2,
-    }));
+    if (submitted || submittingRef.current) return;
 
-    const res = await API.post("/quiz/submit", {
-      answers: formatted,
-    });
+    submittingRef.current = true;
 
-    setResult(res.data);
-    setSubmitted(true);
+    try {
+      const formatted = questions.map((q, i) => ({
+        question: q.question,
+        type: q.type,
+        correctAnswer: q.answer,
+        userAnswer: selected[i],
+        topic: "Learn Flow Adaptive Training",
+        difficulty: q.difficulty || 2,
+      }));
+
+      const res = await API.post("/quiz/submit", {
+        answers: formatted,
+        quizSessionId,
+      });
+
+      setResult(res.data);
+      setSubmitted(true);
+    } catch (err) {
+      console.error("Quiz submission failed:", err);
+    }
   };
 
   const handleRevealOrNext = () => {
@@ -105,6 +168,36 @@ export default function Adaptive() {
     scorePercent >= 90 ? "text-emerald-400" :
       scorePercent >= 70 ? "text-brand-accent1" :
         scorePercent >= 50 ? "text-amber-400" : "text-rose-400";
+
+  /* ================= TIMER DROPDOWN HELPER ================= */
+  const TimerDropdown = ({
+    label,
+    value,
+    max,
+    onChange,
+  }: {
+    label: string;
+    value: number;
+    max: number;
+    onChange: (v: number) => void;
+  }) => (
+    <div className="flex flex-col items-center gap-1.5">
+      <span className="text-[10px] text-white/30 uppercase tracking-widest font-semibold">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-20 p-3 glass-input appearance-none bg-[#0a0f1c] hover:bg-[#111827] font-bold text-center cursor-pointer text-lg rounded-xl"
+      >
+        {Array.from({ length: max }, (_, i) => (
+          <option key={i} value={i}>
+            {String(i).padStart(2, "0")}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
     <ProtectedRoute>
@@ -144,9 +237,9 @@ export default function Adaptive() {
               transition={{ delay: 0.15, duration: 0.5 }}
               className="glass-card p-6 sm:p-10 space-y-8 relative overflow-hidden"
             >
-              {/* Decorative glow */}
               <div className="absolute -top-20 -right-20 w-60 h-60 bg-brand-accent1/10 blur-[100px] rounded-full pointer-events-none"></div>
 
+              {/* Topic Input */}
               <div className="space-y-3">
                 <label className="text-sm font-bold uppercase tracking-widest text-white/50 flex items-center gap-2">
                   <Lucide.Target className="w-4 h-4 text-brand-accent1" />
@@ -160,6 +253,78 @@ export default function Adaptive() {
                 />
               </div>
 
+              {/* Question Count + Timer Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+                {/* Question Count */}
+                <div className="space-y-3">
+                  <label className="text-sm font-bold uppercase tracking-widest text-white/50 flex items-center gap-2">
+                    <Lucide.Hash className="w-4 h-4 text-brand-accent1" />
+                    Number of Questions
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setQuestionCount((v) => Math.max(1, v - 1))}
+                      className="w-11 h-11 rounded-xl glass-input flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all text-xl font-bold flex-shrink-0"
+                    >
+                      −
+                    </button>
+                    <div className="flex-1 glass-input rounded-xl px-4 py-3 text-center font-extrabold text-2xl text-white tracking-wide">
+                      {questionCount}
+                    </div>
+                    <button
+                      onClick={() => setQuestionCount((v) => Math.min(20, v + 1))}
+                      className="w-11 h-11 rounded-xl glass-input flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all text-xl font-bold flex-shrink-0"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="flex justify-between px-1">
+                    {[5, 10, 15, 20].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setQuestionCount(n)}
+                        className={`text-xs font-bold px-3 py-1 rounded-lg transition-all ${questionCount === n
+                          ? "bg-brand-accent1/20 text-brand-accent1 border border-brand-accent1/30"
+                          : "text-white/30 hover:text-white/60"
+                          }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Timer Config */}
+                <div className="space-y-3">
+                  <label className="text-sm font-bold uppercase tracking-widest text-white/50 flex items-center gap-2">
+                    <Lucide.Timer className="w-4 h-4 text-brand-accent1" />
+                    Timer per Question
+                    <span className="text-white/20 font-normal normal-case tracking-normal text-xs ml-1">
+                      (0 = no limit)
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <TimerDropdown label="HH" value={timerHours} max={24} onChange={setTimerHours} />
+                    <span className="text-white/30 font-bold text-2xl pb-1">:</span>
+                    <TimerDropdown label="MM" value={timerMinutes} max={60} onChange={setTimerMinutes} />
+                    <span className="text-white/30 font-bold text-2xl pb-1">:</span>
+                    <TimerDropdown label="SS" value={timerSeconds} max={60} onChange={setTimerSeconds} />
+                  </div>
+                  {timerPerQuestion > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm font-semibold w-fit"
+                    >
+                      <Lucide.Clock className="w-3.5 h-3.5" />
+                      {formatTime(timerPerQuestion)} / question
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+
+              {/* Generate Button */}
               <button
                 onClick={generateAdaptive}
                 disabled={loading || !topic.trim()}
@@ -175,7 +340,9 @@ export default function Adaptive() {
                   ) : (
                     <>
                       <Lucide.Sparkles className="w-5 h-5" />
-                      <span className="text-lg font-bold">Start Adaptive Practice</span>
+                      <span className="text-lg font-bold">
+                        Start Adaptive Practice
+                      </span>
                     </>
                   )}
                 </div>
@@ -197,8 +364,13 @@ export default function Adaptive() {
                     <Lucide.Zap className="w-6 h-6 text-brand-accent1" />
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-white">Question {currentIndex + 1} <span className="text-white/30">of {questions.length}</span></p>
-                    <p className="text-white/40 text-sm">Difficulty: {currentQuestion.difficulty || "Auto"}</p>
+                    <p className="text-lg font-bold text-white">
+                      Question {currentIndex + 1}{" "}
+                      <span className="text-white/30">of {questions.length}</span>
+                    </p>
+                    <p className="text-white/40 text-sm">
+                      Difficulty: {currentQuestion.difficulty || "Auto"}
+                    </p>
                   </div>
                 </div>
 
@@ -218,6 +390,32 @@ export default function Adaptive() {
                 </div>
               </motion.div>
 
+              {/* ═══ COUNTDOWN TIMER ═══ */}
+              {timerPerQuestion > 0 && timeLeft !== null && (
+                <div className="sticky top-[72px] z-40 backdrop-blur-md space-y-2">
+                  <div className="flex justify-end pr-1">
+                    <motion.div
+                      key={timeLeft}
+                      initial={{ scale: 1.15, opacity: 0.6 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                      className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-bold font-mono tracking-widest shadow-lg ${timerColor.badge}`}
+                    >
+                      <Lucide.Timer className="w-4 h-4" />
+                      {formatTime(timeLeft)}
+                    </motion.div>
+                  </div>
+                  <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden border border-white/5">
+                    <motion.div
+                      initial={{ width: "100%" }}
+                      animate={{ width: `${(timeLeft / timerPerQuestion) * 100}%` }}
+                      transition={{ duration: 1, ease: "linear" }}
+                      className={`h-full transition-colors duration-500 ${timerColor.bar}`}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Question Card */}
               <AnimatePresence mode="wait">
                 <motion.div
@@ -228,7 +426,6 @@ export default function Adaptive() {
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className="glass-card p-6 sm:p-10 relative overflow-hidden space-y-8"
                 >
-                  {/* Decorative glow */}
                   <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent1/10 blur-[80px] rounded-full pointer-events-none"></div>
 
                   <div className="flex justify-between items-start gap-4">
@@ -315,7 +512,7 @@ export default function Adaptive() {
                         className="overflow-hidden rounded-2xl border"
                         style={{
                           backgroundColor: isCorrect ? "rgba(16, 185, 129, 0.05)" : "rgba(244, 63, 94, 0.05)",
-                          borderColor: isCorrect ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)"
+                          borderColor: isCorrect ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)",
                         }}
                       >
                         <div className="p-6 space-y-4">
@@ -336,7 +533,6 @@ export default function Adaptive() {
                               </>
                             )}
                           </div>
-
                           <div className="pl-11 space-y-4">
                             {!isCorrect && (
                               <div className="p-4 rounded-xl bg-black/40 border border-white/5">
@@ -344,14 +540,12 @@ export default function Adaptive() {
                                 <p className="text-lg text-white font-medium">{currentQuestion.answer}</p>
                               </div>
                             )}
-
                             <p className="text-white/70">
                               {isCorrect
                                 ? (currentQuestion.explanation?.correct || "Excellent understanding.")
                                 : (currentQuestion.explanation?.incorrect?.[selected[currentIndex]]
                                   || currentQuestion.explanation?.correct
-                                  || "Review this concept carefully.")
-                              }
+                                  || "Review this concept carefully.")}
                             </p>
                           </div>
                         </div>
@@ -374,9 +568,7 @@ export default function Adaptive() {
                             ? "Finish Training"
                             : "Next Question"}
                       </span>
-                      {revealed && (
-                        <Lucide.ArrowRight className="w-5 h-5 text-white" />
-                      )}
+                      {revealed && <Lucide.ArrowRight className="w-5 h-5 text-white" />}
                     </div>
                   </button>
                 </motion.div>
@@ -406,7 +598,6 @@ export default function Adaptive() {
                     <p className={`text-xl font-bold ${scoreColor}`}>{scoreLabel}</p>
                   </div>
 
-                  {/* Score Ring */}
                   <div className="flex items-center justify-center gap-8">
                     <div className="relative w-32 h-32">
                       <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
@@ -467,8 +658,7 @@ export default function Adaptive() {
                 {questions.map((q, index) => {
                   const userAnswer = selected[index];
                   const correct =
-                    userAnswer?.trim().toLowerCase() ===
-                    q.answer.trim().toLowerCase();
+                    userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
 
                   return (
                     <motion.div
@@ -476,9 +666,7 @@ export default function Adaptive() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className={`p-6 rounded-2xl border space-y-4 ${correct
-                        ? "bg-emerald-500/5 border-emerald-500/15"
-                        : "bg-rose-500/5 border-rose-500/15"
+                      className={`p-6 rounded-2xl border space-y-4 ${correct ? "bg-emerald-500/5 border-emerald-500/15" : "bg-rose-500/5 border-rose-500/15"
                         }`}
                     >
                       <div className="flex items-start gap-3">
@@ -530,6 +718,12 @@ export default function Adaptive() {
                     setSubmitted(false);
                     setResult(null);
                     setTopic("");
+                    setQuestionCount(5);
+                    setTimerHours(0);
+                    setTimerMinutes(0);
+                    setTimerSeconds(0);
+                    setTimeLeft(null);
+                    submittingRef.current = false;
                   }}
                   className="relative group overflow-hidden rounded-2xl p-[2px]"
                 >

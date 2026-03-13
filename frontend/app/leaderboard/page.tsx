@@ -17,10 +17,9 @@ interface User {
   country?: string;
   league?: "bronze" | "silver" | "gold";
   quizzes?: number;
-  learningTime?: number;
 }
 
-type Mode = "global" | "weekly" | "streak" | "quizzes" | "learning";
+type Mode = "global" | "weekly" | "streak" | "quizzes";
 
 const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
 
@@ -58,7 +57,6 @@ export default function Leaderboard() {
       if (mode === "weekly") endpoint = "/leaderboard/weekly";
       if (mode === "streak") endpoint = "/leaderboard/streak";
       if (mode === "quizzes") endpoint = "/leaderboard/quizzes";
-      if (mode === "learning") endpoint = "/leaderboard/learning-time";
 
       const res = await API.get(endpoint);
       setPodium(res.data.podium || []);
@@ -93,7 +91,6 @@ export default function Leaderboard() {
   const getMetricDisplay = (user: User) => {
     if (mode === "streak") return <><span className="text-orange-400">{user.streak}</span> Days 🔥</>;
     if (mode === "quizzes") return <><span className="text-emerald-400">{user.quizzes}</span> Quizzes 📝</>;
-    if (mode === "learning") return <><span className="text-brand-accent2">{user.learningTime}</span> min 🧠</>;
     return <><span className="text-brand-accent1">{user.xp}</span> XP</>;
   };
 
@@ -121,7 +118,7 @@ export default function Leaderboard() {
         {/* MODE TOGGLES (Segmented Controls) */}
         <div className="flex justify-center mb-20 relative z-20">
           <div className="glass-panel p-1.5 rounded-2xl flex flex-wrap justify-center gap-1 w-full max-w-4xl mx-auto shadow-xl">
-            {(["global", "weekly", "streak", "quizzes", "learning"] as Mode[]).map((type) => (
+            {(["global", "weekly", "streak", "quizzes"] as Mode[]).map((type) => (
               <button
                 key={type}
                 onClick={() => setMode(type)}
@@ -228,13 +225,12 @@ function PodiumCard({ user, place, mode }: { user: User; place: "first" | "secon
   const glowShadow = isFirst
     ? "shadow-[0_0_50px_rgba(250,204,21,0.25)]"
     : place === "second"
-    ? "shadow-[0_0_40px_rgba(203,213,225,0.15)]"
-    : "shadow-[0_0_40px_rgba(217,119,6,0.15)]";
+      ? "shadow-[0_0_40px_rgba(203,213,225,0.15)]"
+      : "shadow-[0_0_40px_rgba(217,119,6,0.15)]";
 
   const getMetric = () => {
     if (mode === "streak") return `${user.streak ?? 0} 🔥`;
     if (mode === "quizzes") return `${user.quizzes ?? 0} 📝`;
-    if (mode === "learning") return `${user.learningTime ?? 0} min 🧠`;
     return `${user.xp ?? 0} XP`;
   };
 
@@ -276,9 +272,8 @@ function PodiumCard({ user, place, mode }: { user: User; place: "first" | "secon
       </div>
 
       <div
-        className={`absolute bottom-0 w-full h-1 ${
-          isFirst ? "bg-yellow-400" : place === "second" ? "bg-slate-300" : "bg-amber-600"
-        } box-glow`}
+        className={`absolute bottom-0 w-full h-1 ${isFirst ? "bg-yellow-400" : place === "second" ? "bg-slate-300" : "bg-amber-600"
+          } box-glow`}
       ></div>
     </motion.div>
   );

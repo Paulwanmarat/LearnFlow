@@ -212,9 +212,9 @@ STRICT RULES:
           q.options = ["True", "False"];
           // Normalise Thai or incorrect translations back to English True/False just in case
           if (q.answer === "ไม่ใช่" || q.answer?.toLowerCase() === "false") {
-             q.answer = "False";
+            q.answer = "False";
           } else if (q.answer === "ใช่" || q.answer?.toLowerCase() === "true") {
-             q.answer = "True";
+            q.answer = "True";
           }
         }
 
@@ -251,11 +251,11 @@ exports.submitQuiz = async (req, res) => {
   activeSubmissions.add(userId);
 
   try {
-    const { answers } = req.body;
+    const { answers, learningTime = 0, quizSessionId } = req.body;
 
-    if (!Array.isArray(answers)) {
+    if (!quizSessionId) {
       activeSubmissions.delete(userId);
-      return res.status(400).json({ error: "Invalid answers format" });
+      return res.status(400).json({ error: "quizSessionId required" });
     }
 
     const user = await User.findById(userId);
@@ -263,7 +263,7 @@ exports.submitQuiz = async (req, res) => {
       activeSubmissions.delete(userId);
       return res.status(404).json({ error: "User not found" });
     }
-    
+
     const detailedResults = [];
 
     const grading = await Promise.all(
@@ -368,8 +368,11 @@ exports.submitQuiz = async (req, res) => {
       else if (diff > 1) newStreak = 1;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
+    const updatedUser = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        lastQuizSession: { $ne: quizSessionId }
+      },
       {
         $push: {
           history: {
@@ -384,15 +387,23 @@ exports.submitQuiz = async (req, res) => {
         },
         $inc: {
           xp: earnedXP,
-          weeklyXp: earnedXP
+          weeklyXp: earnedXP,
+          quizzesTaken: 1,
+          learningTime: learningTime
         },
         $set: {
           streak: newStreak,
-          lastQuizDate: today
+          lastQuizDate: today,
+          lastQuizSession: quizSessionId
         }
       },
       { returnDocument: "after" }
     );
+
+    if (!updatedUser) {
+      activeSubmissions.delete(userId);
+      return res.status(409).json({ error: "Quiz already submitted" });
+    }
 
     const newLevel = Math.floor(updatedUser.xp / 100) + 1;
     if (newLevel !== updatedUser.level) {
@@ -574,7 +585,7 @@ exports.getLeaderboard = async (req, res) => {
     const users = await User.find()
       .sort({ xp: -1 })
       .limit(20)
-      .select("name xp level");
+      .select("username xp level quizzesTaken learningTime");
 
     res.json(users);
   } catch (err) {
@@ -587,7 +598,7 @@ exports.getWeeklyLeaderboard = async (req, res) => {
     const users = await User.find()
       .sort({ weeklyXp: -1 })
       .limit(20)
-      .select("name weeklyXp level");
+      .select("username weeklyXp level quizzesTaken learningTime");
 
     res.json(users);
   } catch (err) {

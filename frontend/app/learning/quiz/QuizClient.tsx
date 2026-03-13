@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import API from "@/utils/api";
@@ -39,6 +39,16 @@ export default function QuizClient() {
     const [result, setResult] = useState<any>(null);
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [revealed, setRevealed] = useState(false);
+    const [quizSessionId] = useState(() => crypto.randomUUID());
+    const submittingRef = useRef(false);
+
+    /* ================= FORMAT TIME ================= */
+    const formatTime = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+    };
 
     /* ================= LOAD QUIZ ================= */
     useEffect(() => {
@@ -107,7 +117,9 @@ export default function QuizClient() {
     };
 
     const submitQuiz = async () => {
-        if (submitted) return;
+        if (submitted || submittingRef.current) return;
+
+        submittingRef.current = true;
 
         const formatted = questions.map((q, i) => ({
             question: q.question,
@@ -121,17 +133,38 @@ export default function QuizClient() {
 
         const res = await API.post("/quiz/submit", {
             answers: formatted,
+            quizSessionId,
         });
 
         setResult(res.data);
         setSubmitted(true);
     };
 
+    /* ================= TIMER COLOR HELPERS ================= */
+    const timerColor =
+        timeLeft !== null && timeLeft <= 10
+            ? {
+                badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse",
+                bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]",
+            }
+            : timeLeft !== null && timeLeft <= 30
+                ? {
+                    badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",
+                    bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
+                }
+                : {
+                    badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",
+                    bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]",
+                };
+
     return (
         <ProtectedRoute>
-            {submitted && result && <Confetti recycle={false} numberOfPieces={500} gravity={0.15} />}
+            {submitted && result && (
+                <Confetti recycle={false} numberOfPieces={500} gravity={0.15} />
+            )}
 
             <div className="relative min-h-screen pt-24 pb-12 px-4 sm:px-8 max-w-5xl mx-auto space-y-12">
+
                 {/* Header */}
                 {!submitted && (
                     <motion.div
@@ -145,9 +178,15 @@ export default function QuizClient() {
                             </div>
                             <div>
                                 <h1 className="text-3xl font-extrabold tracking-tight">
-                                    Knowledge <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Check</span>
+                                    Knowledge{" "}
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">
+                                        Check
+                                    </span>
                                 </h1>
-                                <p className="text-white/50 text-sm mt-1">Topic: <span className="text-white font-medium">{topic}</span></p>
+                                <p className="text-white/50 text-sm mt-1">
+                                    Topic:{" "}
+                                    <span className="text-white font-medium">{topic}</span>
+                                </p>
                             </div>
                         </div>
 
@@ -155,7 +194,9 @@ export default function QuizClient() {
                         <div className="flex-1 w-full max-w-sm ml-auto">
                             <div className="flex justify-between text-sm font-semibold mb-2 uppercase tracking-wide">
                                 <span className="text-white/50">Progress</span>
-                                <span className="text-brand-accent1">{currentIndex + 1} / {questions.length}</span>
+                                <span className="text-brand-accent1">
+                                    {currentIndex + 1} / {questions.length}
+                                </span>
                             </div>
                             <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 relative">
                                 <motion.div
@@ -169,15 +210,33 @@ export default function QuizClient() {
                     </motion.div>
                 )}
 
-                {/* Timer Bar */}
-                {!submitted && timerPerQuestion > 0 && (
-                    <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden border border-white/5 sticky top-[72px] z-40 backdrop-blur-md">
-                        <motion.div
-                            initial={{ width: "100%" }}
-                            animate={{ width: `${(timeLeft! / timerPerQuestion) * 100}%` }}
-                            transition={{ duration: 1, ease: "linear" }}
-                            className={`h-full ${timeLeft! <= 5 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"}`}
-                        />
+                {/* ================= TIMER BAR + COUNTDOWN ================= */}
+                {!submitted && timerPerQuestion > 0 && timeLeft !== null && (
+                    <div className="sticky top-[72px] z-40 backdrop-blur-md space-y-2">
+
+                        {/* Countdown Badge */}
+                        <div className="flex justify-end pr-1">
+                            <motion.div
+                                key={timeLeft}
+                                initial={{ scale: 1.15, opacity: 0.6 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.3 }}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-bold font-mono tracking-widest shadow-lg ${timerColor.badge}`}
+                            >
+                                <Lucide.Timer className="w-4 h-4" />
+                                {formatTime(timeLeft)}
+                            </motion.div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden border border-white/5">
+                            <motion.div
+                                initial={{ width: "100%" }}
+                                animate={{ width: `${(timeLeft / timerPerQuestion) * 100}%` }}
+                                transition={{ duration: 1, ease: "linear" }}
+                                className={`h-full transition-colors duration-500 ${timerColor.bar}`}
+                            />
+                        </div>
                     </div>
                 )}
 
@@ -200,34 +259,47 @@ export default function QuizClient() {
                                     {currentQuestion.question}
                                 </h2>
                                 <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
-                                    {currentQuestion.type === "mcq" ? "Multiple Choice" :
-                                        currentQuestion.type === "tf" ? "True / False" :
-                                            currentQuestion.type === "written" ? "Written" : "Code"}
+                                    {currentQuestion.type === "mcq"
+                                        ? "Multiple Choice"
+                                        : currentQuestion.type === "tf"
+                                            ? "True / False"
+                                            : currentQuestion.type === "written"
+                                                ? "Written"
+                                                : "Code"}
                                 </div>
                             </div>
 
                             {/* OPTIONS */}
                             <div className="flex-1">
-                                {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") ? (
+                                {currentQuestion.type === "mcq" ||
+                                    currentQuestion.type === "tf" ? (
                                     <div className="grid grid-cols-1 gap-4">
                                         {currentQuestion.options?.map((opt, j) => {
-                                            const selectedOption = selected[currentIndex] === opt;
+                                            const selectedOption =
+                                                selected[currentIndex] === opt;
 
-                                            let style = "border-white/10 hover:border-white/30 hover:bg-white-[0.02]";
-                                            let selectedStyle = "text-brand-accent1 border-brand-accent1";
+                                            let style =
+                                                "border-white/10 hover:border-white/30 hover:bg-white-[0.02]";
+                                            let selectedStyle =
+                                                "text-brand-accent1 border-brand-accent1";
 
                                             if (revealed) {
                                                 if (opt === currentQuestion.answer) {
-                                                    style = "border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]";
-                                                    selectedStyle = "text-emerald-400 border-emerald-400";
+                                                    style =
+                                                        "border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]";
+                                                    selectedStyle =
+                                                        "text-emerald-400 border-emerald-400";
                                                 } else if (selectedOption && !isCorrect) {
-                                                    style = "border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]";
-                                                    selectedStyle = "text-rose-400 border-rose-400";
+                                                    style =
+                                                        "border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]";
+                                                    selectedStyle =
+                                                        "text-rose-400 border-rose-400";
                                                 } else {
                                                     style = "border-white/5 opacity-50";
                                                 }
                                             } else if (selectedOption) {
-                                                style = "border-brand-accent1 bg-brand-accent1/10 shadow-[0_0_20px_rgba(99,102,241,0.1)] translate-x-2";
+                                                style =
+                                                    "border-brand-accent1 bg-brand-accent1/10 shadow-[0_0_20px_rgba(99,102,241,0.1)] translate-x-2";
                                             }
 
                                             return (
@@ -241,19 +313,26 @@ export default function QuizClient() {
                                                     }}
                                                     className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 relative overflow-hidden group ${style}`}
                                                 >
-                                                    {/* Background hover effect */}
                                                     <span className="absolute inset-0 w-full h-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></span>
-
                                                     <div className="flex items-center gap-4 relative z-10">
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${selectedOption || (revealed && opt === currentQuestion.answer)
-                                                            ? selectedStyle
-                                                            : "border-white/20 text-transparent"
-                                                            }`}>
-                                                            {(selectedOption || (revealed && opt === currentQuestion.answer)) && (
-                                                                <div className="w-3 h-3 bg-current rounded-full"></div>
-                                                            )}
+                                                        <div
+                                                            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${selectedOption ||
+                                                                (revealed &&
+                                                                    opt === currentQuestion.answer)
+                                                                ? selectedStyle
+                                                                : "border-white/20 text-transparent"
+                                                                }`}
+                                                        >
+                                                            {(selectedOption ||
+                                                                (revealed &&
+                                                                    opt ===
+                                                                    currentQuestion.answer)) && (
+                                                                    <div className="w-3 h-3 bg-current rounded-full"></div>
+                                                                )}
                                                         </div>
-                                                        <span className="text-lg font-medium tracking-wide">{opt}</span>
+                                                        <span className="text-lg font-medium tracking-wide">
+                                                            {opt}
+                                                        </span>
                                                     </div>
                                                 </button>
                                             );
@@ -272,16 +351,20 @@ export default function QuizClient() {
                                     />
                                 )}
 
-                                {/* FIXED Explanation Section */}
+                                {/* Explanation */}
                                 <AnimatePresence>
                                     {revealed && (
                                         <motion.div
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: "auto" }}
-                                            className="overflow-hidden rounded-2xl border"
+                                            className="overflow-hidden rounded-2xl border mt-6"
                                             style={{
-                                                backgroundColor: isCorrect ? "rgba(16, 185, 129, 0.05)" : "rgba(244, 63, 94, 0.05)",
-                                                borderColor: isCorrect ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)"
+                                                backgroundColor: isCorrect
+                                                    ? "rgba(16, 185, 129, 0.05)"
+                                                    : "rgba(244, 63, 94, 0.05)",
+                                                borderColor: isCorrect
+                                                    ? "rgba(16, 185, 129, 0.2)"
+                                                    : "rgba(244, 63, 94, 0.2)",
                                             }}
                                         >
                                             <div className="p-6 space-y-4">
@@ -291,14 +374,18 @@ export default function QuizClient() {
                                                             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
                                                                 <Lucide.Check className="w-5 h-5" />
                                                             </div>
-                                                            <h3 className="text-xl font-bold text-emerald-400">Excellent!</h3>
+                                                            <h3 className="text-xl font-bold text-emerald-400">
+                                                                Excellent!
+                                                            </h3>
                                                         </>
                                                     ) : (
                                                         <>
                                                             <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400">
                                                                 <Lucide.X className="w-5 h-5" />
                                                             </div>
-                                                            <h3 className="text-xl font-bold text-rose-400">Not quite right</h3>
+                                                            <h3 className="text-xl font-bold text-rose-400">
+                                                                Not quite right
+                                                            </h3>
                                                         </>
                                                     )}
                                                 </div>
@@ -306,26 +393,43 @@ export default function QuizClient() {
                                                 <div className="pl-11 space-y-4">
                                                     {!isCorrect && (
                                                         <div className="p-4 rounded-xl bg-black/40 border border-white/5">
-                                                            <p className="text-sm text-white/50 uppercase tracking-widest font-semibold mb-1">Correct Answer</p>
-                                                            <p className="text-lg text-white font-medium">{currentQuestion.answer}</p>
+                                                            <p className="text-sm text-white/50 uppercase tracking-widest font-semibold mb-1">
+                                                                Correct Answer
+                                                            </p>
+                                                            <p className="text-lg text-white font-medium">
+                                                                {currentQuestion.answer}
+                                                            </p>
                                                         </div>
                                                     )}
 
                                                     <p className="text-white/70">
-                                                        {typeof currentQuestion.explanation === "object"
+                                                        {typeof currentQuestion.explanation ===
+                                                            "object"
                                                             ? currentQuestion.explanation.correct
                                                             : currentQuestion.explanation ||
                                                             "Great understanding."}
                                                     </p>
 
-                                                    {typeof currentQuestion.explanation === "object" && !isCorrect && currentQuestion.explanation.incorrect?.[selected[currentIndex]] && (
-                                                        <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 mt-2">
-                                                            <p className="text-sm text-rose-400 uppercase tracking-widest font-semibold mb-1">Why your answer was incorrect</p>
-                                                            <p className="text-white/80 leading-relaxed">
-                                                                {currentQuestion.explanation.incorrect[selected[currentIndex]]}
-                                                            </p>
-                                                        </div>
-                                                    )}
+                                                    {typeof currentQuestion.explanation ===
+                                                        "object" &&
+                                                        !isCorrect &&
+                                                        currentQuestion.explanation.incorrect?.[
+                                                        selected[currentIndex]
+                                                        ] && (
+                                                            <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 mt-2">
+                                                                <p className="text-sm text-rose-400 uppercase tracking-widest font-semibold mb-1">
+                                                                    Why your answer was incorrect
+                                                                </p>
+                                                                <p className="text-white/80 leading-relaxed">
+                                                                    {
+                                                                        currentQuestion.explanation
+                                                                            .incorrect[
+                                                                        selected[currentIndex]
+                                                                        ]
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        )}
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -363,33 +467,29 @@ export default function QuizClient() {
                         {/* Header */}
                         <div className="text-center space-y-4">
                             <h2 className="text-4xl font-bold">🎉 Quiz Completed!</h2>
-
                             <p className="text-3xl font-bold text-indigo-400">
                                 {result.score} / {result.total}
                             </p>
-
-                            <p className="text-white/50">
-                                {result.percent}% Accuracy
-                            </p>
+                            <p className="text-white/50">{result.percent}% Accuracy</p>
                         </div>
 
                         {/* FULL QUESTION REVIEW */}
                         <div className="space-y-6">
                             {questions.map((q, index) => {
                                 const userAnswer = selected[index];
-                                const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                                const correct =
+                                    userAnswer?.trim().toLowerCase() ===
+                                    q.answer.trim().toLowerCase();
 
                                 return (
                                     <div
                                         key={index}
                                         className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4"
                                     >
-                                        {/* Question */}
                                         <p className="text-lg font-semibold">
                                             {index + 1}. {q.question}
                                         </p>
 
-                                        {/* User Answer */}
                                         <div>
                                             <p className="text-sm text-white/50">Your Answer:</p>
                                             <p className={correct ? "text-emerald-400" : "text-rose-400"}>
@@ -397,21 +497,18 @@ export default function QuizClient() {
                                             </p>
                                         </div>
 
-                                        {/* Correct Answer */}
                                         {!correct && (
                                             <div>
                                                 <p className="text-sm text-white/50">Correct Answer:</p>
-                                                <p className="text-emerald-400">
-                                                    {q.answer}
-                                                </p>
+                                                <p className="text-emerald-400">{q.answer}</p>
                                             </div>
                                         )}
 
-                                        {/* Explanation */}
                                         {q.explanation && (
                                             <div className="pt-2 border-t border-white/10">
-                                                <p className="text-sm text-white/50 mb-1">Explanation:</p>
-
+                                                <p className="text-sm text-white/50 mb-1">
+                                                    Explanation:
+                                                </p>
                                                 {typeof q.explanation === "string" ? (
                                                     <p className="text-white/70">{q.explanation}</p>
                                                 ) : (
@@ -419,13 +516,10 @@ export default function QuizClient() {
                                                         <p className="text-white/70">
                                                             {q.explanation.correct}
                                                         </p>
-
                                                         {!correct &&
                                                             q.explanation.incorrect?.[userAnswer] && (
                                                                 <p className="text-rose-300 mt-1">
-                                                                    {
-                                                                        q.explanation.incorrect[userAnswer]
-                                                                    }
+                                                                    {q.explanation.incorrect[userAnswer]}
                                                                 </p>
                                                             )}
                                                     </>
@@ -433,7 +527,6 @@ export default function QuizClient() {
                                             </div>
                                         )}
 
-                                        {/* Status Badge */}
                                         <div className="pt-2">
                                             {correct ? (
                                                 <span className="text-emerald-400 font-semibold">
@@ -459,7 +552,6 @@ export default function QuizClient() {
                                 Return to Dashboard
                             </button>
                         </div>
-
                     </div>
                 )}
             </div>

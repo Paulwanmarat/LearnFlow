@@ -63,6 +63,14 @@ const userSchema = new mongoose.Schema(
       minlength: 8,
       select: false,
     },
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
+    },
 
     /* ================= LOCATION ================= */
 
@@ -204,6 +212,7 @@ userSchema.methods.updatePerformance = function (
 
   this.lastQuizSubmittedAt = now;
   this.lastQuizDuration = durationSeconds;
+  this.learningTime += durationSeconds;
 
   const percent = Math.round((score / total) * 100);
 
