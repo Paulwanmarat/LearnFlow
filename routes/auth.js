@@ -1,10 +1,11 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const User = require("../models/user");
 
 const router = express.Router();
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* ===================================================== */
 /* 🔐 GENERATE JWT                                       */
@@ -15,29 +16,6 @@ const generateToken = (id) => {
     expiresIn: "7d",
   });
 };
-
-/* ===================================================== */
-/* 📧 MAILER                                             */
-/* ===================================================== */
-
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // 16-char Google App Password
-  },
-});
-
-// Verify transporter on startup
-transporter.verify((err) => {
-  if (err) {
-    console.error("❌ Mail transporter error:", err.message);
-  } else {
-    console.log("✅ Mail transporter ready");
-  }
-});
 
 /* ===================================================== */
 /* 📝 REGISTER                                           */
@@ -171,8 +149,8 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
 
-    await transporter.sendMail({
-      from: `"Cognivra" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: "Cognivra <onboarding@resend.dev>",
       to: user.email,
       subject: "Reset your Cognivra password",
       html: `
@@ -230,7 +208,6 @@ router.post("/reset-password", async (req, res) => {
       });
     }
 
-    // Hash the incoming raw token to compare with stored hash
     const hashedToken = crypto
       .createHash("sha256")
       .update(token)
@@ -248,15 +225,13 @@ router.post("/reset-password", async (req, res) => {
       });
     }
 
-    // Set new password — pre-save hook will hash it
     user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    // Send confirmation email
-    await transporter.sendMail({
-      from: `"Cognivra" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: "Cognivra <onboarding@resend.dev>",
       to: user.email,
       subject: "Your Cognivra password has been changed",
       html: `
@@ -266,7 +241,7 @@ router.post("/reset-password", async (req, res) => {
             Your Cognivra password was successfully reset. You can now sign in with your new password.
           </p>
           <p style="color:rgba(255,255,255,0.3);font-size:12px;">
-            If you did not make this change, please contact us immediately and secure your account.
+            If you did not make this change, please secure your account immediately.
           </p>
         </div>
       `,
