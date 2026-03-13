@@ -12,6 +12,7 @@ const hpp = require("hpp");
 const compression = require("compression");
 const cron = require("node-cron");
 const { Server } = require("socket.io");
+const passport = require("passport");
 
 const connectDB = require("./config/db");
 const errorHandler = require("./middleware/errorHandler");
@@ -27,49 +28,60 @@ const User = require("./models/user");
 const app = express();
 const server = http.createServer(app);
 
+/* ===================================================== */
+/* 🌐 ALLOWED ORIGINS HELPER                             */
+/* ===================================================== */
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  return (
+    origin === "http://localhost:3000" ||
+    origin.endsWith(".vercel.app")
+  );
+};
+
+/* ===================================================== */
+/* 🔌 SOCKET.IO                                          */
+/* ===================================================== */
+
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-
-      if (
-        origin.startsWith("http://localhost:3000") ||
-        origin.includes("vercel.app")
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: (origin, cb) =>
+      isAllowedOrigin(origin) ? cb(null, true) : cb(new Error("Not allowed by CORS")),
     credentials: true,
   },
 });
 
 app.set("io", io);
 
+/* ===================================================== */
+/* 🗄 DATABASE                                           */
+/* ===================================================== */
+
 connectDB();
+
+/* ===================================================== */
+/* ⚙️  EXPRESS CONFIG                                    */
+/* ===================================================== */
 
 app.set("trust proxy", 1);
 
-app.use(helmet());
+app.use(helmet({
+  // Relax CSP for Google OAuth redirect pages
+  contentSecurityPolicy: false,
+}));
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (
-      origin === "http://localhost:3000" ||
-      origin.endsWith("vercel.app")
-    ) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: (origin, cb) =>
+    isAllowedOrigin(origin) ? cb(null, true) : cb(new Error("Not allowed by CORS")),
   credentials: true,
 }));
 
 app.use(express.json({ limit: "10kb" }));
+
+/* ===================================================== */
+/* 🛡 SECURITY MIDDLEWARE                                */
+/* ===================================================== */
 
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -82,25 +94,43 @@ app.use(hpp());
 app.use(compression());
 app.use(morgan("dev"));
 
+/* ===================================================== */
+/* 🔑 PASSPORT — stateless JWT, no sessions needed       */
+/* ===================================================== */
+
+app.use(passport.initialize());
+
+/* ===================================================== */
+/* 🏥 HEALTH CHECK                                       */
+/* ===================================================== */
+
 app.get("/api/health", (req, res) => {
-  res.json({
-    status: "OK",
-    time: new Date(),
-  });
+  res.json({ status: "OK", time: new Date() });
 });
+
+/* ===================================================== */
+/* 🔌 SOCKET.IO EVENTS                                   */
+/* ===================================================== */
 
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
-
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
   });
 });
 
-app.use("/api/auth", authRoutes);
+/* ===================================================== */
+/* 🛣  ROUTES                                            */
+/* ===================================================== */
+
+app.use("/api/auth", authRoutes);      // also handles /api/auth/google + /api/auth/google/callback
 app.use("/api/quiz", quizRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
+
+/* ===================================================== */
+/* ⏰ CRON JOBS                                          */
+/* ===================================================== */
 
 cron.schedule("*/1 * * * *", async () => {
   try {
@@ -122,12 +152,20 @@ cron.schedule("0 0 * * 0", async () => {
   }
 });
 
+/* ===================================================== */
+/* ❌ 404 + ERROR HANDLER                                */
+/* ===================================================== */
+
 app.use((req, res, next) => {
   res.status(404);
   next(new Error("Route not found"));
 });
 
 app.use(errorHandler);
+
+/* ===================================================== */
+/* 🚀 START                                              */
+/* ===================================================== */
 
 const PORT = process.env.PORT || 5000;
 

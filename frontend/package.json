@@ -11,6 +11,7 @@
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
     "@monaco-editor/react": "^4.7.0",
+    "@react-oauth/google": "^0.13.4",
     "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.6",
     "chart.js": "^4.5.1",

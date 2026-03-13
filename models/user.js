@@ -57,20 +57,23 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Optional — Google-only accounts have no password
     password: {
       type: String,
-      required: true,
       minlength: 8,
       select: false,
     },
-    resetPasswordToken: {
+
+    // ── Google OAuth ──────────────────────────────────
+    googleId: {
       type: String,
+      sparse: true,   // unique index that allows multiple nulls
+      unique: true,
       select: false,
     },
-    resetPasswordExpires: {
-      type: Date,
-      select: false,
-    },
+
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
 
     /* ================= LOCATION ================= */
 
@@ -156,13 +159,15 @@ userSchema.index({ league: 1, xp: -1 });
 /* ===================================================== */
 
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
+  // Only hash if password exists and was modified
+  if (!this.isModified("password") || !this.password) return;
 
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password) return false; // Google-only account
   return bcrypt.compare(enteredPassword, this.password);
 };
 
@@ -193,7 +198,6 @@ userSchema.methods.updatePerformance = function (
   if (score < 0 || total <= 0 || score > total)
     throw new Error("Invalid quiz data");
 
-  // Minimum 2 seconds per question
   if (durationSeconds < total * 2) {
     this.suspiciousFlags += 1;
     throw new Error("Quiz completed suspiciously fast");
@@ -201,11 +205,7 @@ userSchema.methods.updatePerformance = function (
 
   const now = new Date();
 
-  // Prevent rapid spam submissions
-  if (
-    this.lastQuizSubmittedAt &&
-    now - this.lastQuizSubmittedAt < 5000
-  ) {
+  if (this.lastQuizSubmittedAt && now - this.lastQuizSubmittedAt < 5000) {
     this.suspiciousFlags += 1;
     throw new Error("Quiz spam detected");
   }
@@ -221,24 +221,12 @@ userSchema.methods.updatePerformance = function (
   this.totalCorrect += score;
   this.totalQuestions += total;
 
-  this.averageScore = Number(
-    (this.totalScore / this.quizzesTaken).toFixed(2)
-  );
+  this.averageScore = Number((this.totalScore / this.quizzesTaken).toFixed(2));
+  this.accuracy = Math.round((this.totalCorrect / this.totalQuestions) * 100);
 
-  this.accuracy = Math.round(
-    (this.totalCorrect / this.totalQuestions) * 100
-  );
-
-  this.history.push({
-    score,
-    total,
-    percent,
-    topic,
-    duration: durationSeconds,
-  });
+  this.history.push({ score, total, percent, topic, duration: durationSeconds });
 
   const earnedXp = score * 10;
-
   this.xp += earnedXp;
   this.weeklyXp += earnedXp;
 
@@ -261,11 +249,7 @@ userSchema.methods.updateStreak = function () {
   } else {
     const last = new Date(this.lastQuizDate);
     last.setHours(0, 0, 0, 0);
-
-    const diffDays = Math.floor(
-      (today - last) / (1000 * 60 * 60 * 24)
-    );
-
+    const diffDays = Math.floor((today - last) / (1000 * 60 * 60 * 24));
     if (diffDays === 1) this.streak += 1;
     else if (diffDays > 1) this.streak = 1;
   }
@@ -293,20 +277,15 @@ userSchema.methods.updateDifficulty = function (percent) {
 /* ===================================================== */
 
 userSchema.methods.unlockAchievement = function (name) {
-  if (!this.achievements.find(a => a.name === name)) {
+  if (!this.achievements.find((a) => a.name === name)) {
     this.achievements.push({ name });
   }
 };
 
 userSchema.methods.checkAchievements = function () {
-  if (this.streak === 7)
-    this.unlockAchievement("7 Day Streak 🔥");
-
-  if (this.quizzesTaken === 50)
-    this.unlockAchievement("Quiz Master 🧠");
-
-  if (this.xp >= 5000)
-    this.unlockAchievement("XP Warrior ⚡");
+  if (this.streak === 7) this.unlockAchievement("7 Day Streak 🔥");
+  if (this.quizzesTaken === 50) this.unlockAchievement("Quiz Master 🧠");
+  if (this.xp >= 5000) this.unlockAchievement("XP Warrior ⚡");
 };
 
 /* ===================================================== */
@@ -316,6 +295,7 @@ userSchema.methods.checkAchievements = function () {
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.googleId;
   delete obj.__v;
   return obj;
 };
