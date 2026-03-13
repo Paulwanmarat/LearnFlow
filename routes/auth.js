@@ -14,9 +14,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 /* ===================================================== */
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+};
+
+// Short-lived token to carry Google profile data to the complete-profile page
+const generateSetupToken = (data) => {
+  return jwt.sign({ ...data, _setup: true }, process.env.JWT_SECRET, { expiresIn: "15m" });
 };
 
 /* ===================================================== */
@@ -41,44 +44,32 @@ passport.use(
         }
 
         // Find existing user — match by googleId first, then by email
-        let user = await User.findOne({
+        const user = await User.findOne({
           $or: [{ googleId: profile.id }, { email }],
         });
 
         if (user) {
-          // Attach googleId if they previously registered with email/password
+          // Existing user — link googleId if they signed up via email/password before
           if (!user.googleId) {
             user.googleId = profile.id;
-            if (!user.avatar) user.avatar = profile.photos?.[0]?.value || "";
+            if (!user.avatar || user.avatar === "https://i.imgur.com/6VBx3io.png") {
+              user.avatar = profile.photos?.[0]?.value || user.avatar;
+            }
             await user.save({ validateBeforeSave: false });
           }
-        } else {
-          // New user — create an account from Google profile
-          const baseUsername = (profile.displayName || email.split("@")[0])
-            .replace(/\s+/g, "_")
-            .replace(/[^a-zA-Z0-9._]/g, "")
-            .slice(0, 16);
-
-          // Ensure username is unique
-          let username = baseUsername;
-          const existing = await User.findOne({ username });
-          if (existing) {
-            username = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`.slice(0, 20);
-          }
-
-          user = await User.create({
-            username,
-            email,
-            googleId: profile.id,
-            avatar: profile.photos?.[0]?.value || "",
-            country: "US",        // default — can be updated in settings
-            league: "Bronze",
-            xp: 0,
-            // No password field — Google users authenticate via OAuth only
-          });
+          // Return the real DB user — they go straight to the dashboard
+          return done(null, { _type: "existing", user });
         }
 
-        return done(null, user);
+        // Brand-new Google user — don't create yet, carry profile data to setup page
+        return done(null, {
+          _type: "pending",
+          googleId: profile.id,
+          email,
+          avatar: profile.photos?.[0]?.value || "",
+          displayName: profile.displayName || "",
+        });
+
       } catch (err) {
         return done(err, null);
       }
@@ -86,15 +77,22 @@ passport.use(
   )
 );
 
-// Passport requires these even for stateless JWT apps (called once per request)
-passport.serializeUser((user, done) => done(null, user._id));
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (err) {
-    done(err, null);
+// Passport serialize/deserialize — only used for the OAuth handshake, not for sessions
+passport.serializeUser((payload, done) => {
+  if (payload._type === "existing") return done(null, { _type: "existing", id: payload.user._id });
+  done(null, payload); // pending — serialize the whole object
+});
+
+passport.deserializeUser(async (payload, done) => {
+  if (payload._type === "existing") {
+    try {
+      const user = await User.findById(payload.id);
+      return done(null, { _type: "existing", user });
+    } catch (err) {
+      return done(err, null);
+    }
   }
+  done(null, payload); // pending — pass through
 });
 
 /* ===================================================== */
@@ -106,7 +104,7 @@ router.get(
   "/google",
   passport.authenticate("google", {
     scope: ["profile", "email"],
-    prompt: "select_account",   // always show account picker
+    prompt: "select_account", // always show the account picker
   })
 );
 
@@ -123,14 +121,110 @@ router.get(
   }),
   (req, res) => {
     try {
-      const token = generateToken(req.user._id);
-      // Redirect to frontend with JWT in query param — frontend stores it in localStorage
-      res.redirect(`${process.env.FRONTEND_URL}?token=${token}`);
+      const payload = req.user;
+
+      if (payload._type === "existing") {
+        // Known user — issue full JWT, send straight to dashboard
+        const token = generateToken(payload.user._id);
+        return res.redirect(`${process.env.FRONTEND_URL}?token=${token}`);
+      }
+
+      // New user — issue a 15-min setup token, send to profile completion page
+      const setupToken = generateSetupToken({
+        googleId: payload.googleId,
+        email: payload.email,
+        avatar: payload.avatar,
+        displayName: payload.displayName,
+      });
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/complete-profile?setup=${setupToken}`
+      );
     } catch {
       res.redirect(`${process.env.FRONTEND_URL}?error=token_failed`);
     }
   }
 );
+
+/* ===================================================== */
+/* ✅ COMPLETE GOOGLE PROFILE                            */
+/* POST /auth/google/complete                            */
+/* Body: { setupToken, username, country, password,      */
+/*         confirmPassword }                             */
+/* ===================================================== */
+
+router.post("/google/complete", async (req, res) => {
+  try {
+    const { setupToken, username, country, password, confirmPassword } = req.body;
+
+    if (!setupToken || !username || !country || !password || !confirmPassword) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    // Verify the setup token
+    let decoded;
+    try {
+      decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, message: "Setup session expired. Please sign in with Google again." });
+    }
+
+    if (!decoded._setup) {
+      return res.status(401).json({ success: false, message: "Invalid setup token" });
+    }
+
+    // Validate username
+    const usernameRegex = /^[a-zA-Z0-9._]{4,20}$/;
+    if (!usernameRegex.test(username.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Username must be 4–20 characters, letters/numbers/._  only",
+      });
+    }
+
+    // Validate password
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: "Passwords do not match" });
+    }
+
+    // Check username & email aren't already taken
+    const existing = await User.findOne({
+      $or: [{ username: username.trim() }, { email: decoded.email }, { googleId: decoded.googleId }],
+    });
+
+    if (existing) {
+      if (existing.username === username.trim()) {
+        return res.status(409).json({ success: false, message: "Username already taken" });
+      }
+      // Email or googleId already registered — they should just log in
+      return res.status(409).json({ success: false, message: "An account with this Google email already exists. Please sign in." });
+    }
+
+    // Create the user
+    const user = await User.create({
+      username: username.trim(),
+      email: decoded.email,
+      password,
+      googleId: decoded.googleId,
+      avatar: decoded.avatar || "https://i.imgur.com/6VBx3io.png",
+      country: country.toUpperCase(),
+      league: "Bronze",
+      xp: 0,
+    });
+
+    res.status(201).json({
+      success: true,
+      token: generateToken(user._id),
+      user,
+    });
+  } catch (err) {
+    console.error("Google complete error:", err.message);
+    res.status(500).json({ success: false, message: err.message || "Server error" });
+  }
+});
 
 /* ===================================================== */
 /* 📝 REGISTER                                           */
@@ -141,21 +235,12 @@ router.post("/register", async (req, res) => {
     const { username, email, password, country } = req.body;
 
     if (!username || !email || !password || !country) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    const userExists = await User.findOne({
-      $or: [{ email }, { username }],
-    });
-
+    const userExists = await User.findOne({ $or: [{ email }, { username }] });
     if (userExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Username or email already exists",
-      });
+      return res.status(400).json({ success: false, message: "Username or email already exists" });
     }
 
     const user = await User.create({
@@ -172,10 +257,7 @@ router.post("/register", async (req, res) => {
     });
   } catch (err) {
     console.error("Register error:", err.message);
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error",
-    });
+    res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 });
 
@@ -188,19 +270,13 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password required",
-      });
+      return res.status(400).json({ success: false, message: "Email and password required" });
     }
 
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
     // Google-only accounts have no password
@@ -212,25 +288,14 @@ router.post("/login", async (req, res) => {
     }
 
     const isMatch = await user.matchPassword(password);
-
     if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
-    res.json({
-      success: true,
-      token: generateToken(user._id),
-      user,
-    });
+    res.json({ success: true, token: generateToken(user._id), user });
   } catch (err) {
     console.error("Login error:", err.message);
-    res.status(500).json({
-      success: false,
-      message: err.message || "Server error",
-    });
+    res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 });
 
@@ -241,30 +306,14 @@ router.post("/login", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
+      return res.status(400).json({ success: false, message: "Email is required" });
     }
 
     const user = await User.findOne({ email });
-
     // Always return success — never reveal if email exists
-    if (!user) {
-      return res.json({
-        success: true,
-        message: "If that email exists, a reset link has been sent",
-      });
-    }
-
-    // Google-only accounts have no password to reset
-    if (!user.password && user.googleId) {
-      return res.json({
-        success: true,
-        message: "If that email exists, a reset link has been sent",
-      });
+    if (!user || (!user.password && user.googleId)) {
+      return res.json({ success: true, message: "If that email exists, a reset link has been sent" });
     }
 
     const rawToken = crypto.randomBytes(32).toString("hex");
@@ -297,16 +346,10 @@ router.post("/forgot-password", async (req, res) => {
       `,
     });
 
-    res.json({
-      success: true,
-      message: "If that email exists, a reset link has been sent",
-    });
+    res.json({ success: true, message: "If that email exists, a reset link has been sent" });
   } catch (err) {
     console.error("Forgot password error:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to send reset email",
-    });
+    res.status(500).json({ success: false, message: "Failed to send reset email" });
   }
 });
 
@@ -319,31 +362,20 @@ router.post("/reset-password", async (req, res) => {
     const { token, password } = req.body;
 
     if (!token || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Token and new password are required",
-      });
+      return res.status(400).json({ success: false, message: "Token and new password are required" });
     }
-
     if (password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 8 characters",
-      });
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
     }
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpires: { $gt: new Date() },
     }).select("+resetPasswordToken +resetPasswordExpires +password");
 
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Reset link is invalid or has expired",
-      });
+      return res.status(400).json({ success: false, message: "Reset link is invalid or has expired" });
     }
 
     user.password = password;
@@ -365,17 +397,10 @@ router.post("/reset-password", async (req, res) => {
       `,
     });
 
-    res.json({
-      success: true,
-      message: "Password reset successful",
-      token: generateToken(user._id),
-    });
+    res.json({ success: true, message: "Password reset successful", token: generateToken(user._id) });
   } catch (err) {
     console.error("Reset password error:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Password reset failed",
-    });
+    res.status(500).json({ success: false, message: "Password reset failed" });
   }
 });
 
