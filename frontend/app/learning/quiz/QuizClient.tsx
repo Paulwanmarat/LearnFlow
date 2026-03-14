@@ -44,6 +44,8 @@ export default function QuizClient() {
   const submittingRef  = useRef(false);
   // ── prevents double-click on Check Answer / Next ──
   const actionGuardRef = useRef(false);
+  // ── stores AI grading result for written questions ──
+  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -83,30 +85,50 @@ export default function QuizClient() {
   }, [currentIndex, revealed]);
 
   const currentQuestion = questions[currentIndex];
-  const isCorrect =
-    selected[currentIndex]?.trim().toLowerCase() ===
-    currentQuestion?.answer?.trim().toLowerCase();
+  // For written questions: use AI grade result; for MCQ/TF: literal match
+  const isCorrect = currentQuestion?.type === "written" || currentQuestion?.type === "code"
+    ? (writtenCorrect ?? false)
+    : selected[currentIndex]?.trim().toLowerCase() ===
+      currentQuestion?.answer?.trim().toLowerCase();
   const progress =
     questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
   /* ================= HANDLE REVEAL / NEXT ================= */
-  const handleRevealOrNext = () => {
+  const handleRevealOrNext = async () => {
     // ── click guard: ignore if already processing ──
     if (actionGuardRef.current) return;
     actionGuardRef.current = true;
 
     if (!revealed) {
+      // For written/code: call the AI grader before showing result
+      const q = questions[currentIndex];
+      if (q?.type === "written" || q?.type === "code") {
+        try {
+          const { data } = await API.post("/quiz/grade-written", {
+            question:      q.question,
+            correctAnswer: q.answer,
+            userAnswer:    selected[currentIndex],
+          });
+          setWrittenCorrect(data.correct);
+        } catch {
+          // fallback: literal comparison
+          setWrittenCorrect(
+            selected[currentIndex]?.trim().toLowerCase() === q.answer.trim().toLowerCase()
+          );
+        }
+      } else {
+        setWrittenCorrect(null); // not used for MCQ/TF
+      }
       setRevealed(true);
-      // unlock after reveal animation (300 ms)
       setTimeout(() => { actionGuardRef.current = false; }, 300);
     } else {
+      setWrittenCorrect(null); // reset for next question
       if (currentIndex < questions.length - 1) {
         setCurrentIndex((prev) => prev + 1);
         setRevealed(false);
         setTimeout(() => { actionGuardRef.current = false; }, 300);
       } else {
         submitQuiz();
-        // submitQuiz sets submittingRef so we don't unlock the guard
       }
     }
   };

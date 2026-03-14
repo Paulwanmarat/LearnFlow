@@ -384,6 +384,25 @@ exports.getWeeklyLeaderboard = async (req, res) => {
 };
 
 /* ===================================================== */
+/* ✏️  GRADE WRITTEN ANSWER (live, on reveal)            */
+/* POST /api/quiz/grade-written                          */
+/* ===================================================== */
+
+exports.gradeWritten = async (req, res) => {
+  try {
+    const { question, correctAnswer, userAnswer } = req.body;
+    if (!question || !correctAnswer || !userAnswer?.trim()) {
+      return res.json({ correct: false });
+    }
+    const score = await gradeWithAI(question, correctAnswer, userAnswer);
+    res.json({ correct: score === 1 });
+  } catch (err) {
+    console.error("Grade written error:", err.message);
+    res.json({ correct: false }); // fail-safe: don't crash quiz
+  }
+};
+
+/* ===================================================== */
 /* 🔧 HELPERS                                            */
 /* ===================================================== */
 

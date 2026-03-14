@@ -36,6 +36,8 @@ export default function Adaptive() {
   const submittingRef  = useRef(false);
   // ── prevents double-click on Check Answer / Next ──
   const actionGuardRef = useRef(false);
+  // ── stores AI grading result for written questions ──
+  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
 
   const [timerHours,   setTimerHours]   = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(0);
@@ -108,15 +110,34 @@ export default function Adaptive() {
     }
   };
 
-  const handleRevealOrNext = () => {
+  const handleRevealOrNext = async () => {
     // ── single-press guard: ignore rapid double-clicks ──
     if (actionGuardRef.current) return;
     actionGuardRef.current = true;
 
     if (!revealed) {
+      // Grade written/code questions via AI before showing result
+      const q = questions[currentIndex];
+      if (q?.type === "written" || q?.type === "code") {
+        try {
+          const { data } = await API.post("/quiz/grade-written", {
+            question:      q.question,
+            correctAnswer: q.answer,
+            userAnswer:    selected[currentIndex],
+          });
+          setWrittenCorrect(data.correct);
+        } catch {
+          setWrittenCorrect(
+            selected[currentIndex]?.trim().toLowerCase() === q.answer.trim().toLowerCase()
+          );
+        }
+      } else {
+        setWrittenCorrect(null);
+      }
       setRevealed(true);
       setTimeout(() => { actionGuardRef.current = false; }, 350);
     } else if (currentIndex < questions.length - 1) {
+      setWrittenCorrect(null);
       setCurrentIndex(currentIndex + 1);
       setRevealed(false);
       setTimeout(() => { actionGuardRef.current = false; }, 350);
@@ -126,7 +147,9 @@ export default function Adaptive() {
   };
 
   const currentQuestion = questions[currentIndex];
-  const isCorrect = selected[currentIndex]?.trim().toLowerCase() === currentQuestion?.answer.trim().toLowerCase();
+  const isCorrect = currentQuestion?.type === "written" || currentQuestion?.type === "code"
+    ? (writtenCorrect ?? false)
+    : selected[currentIndex]?.trim().toLowerCase() === currentQuestion?.answer.trim().toLowerCase();
   const progress = questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
   const scorePercent = result ? result.percent : 0;
@@ -487,7 +510,7 @@ export default function Adaptive() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <button onClick={() => { setQuestions([]); setSubmitted(false); setResult(null); setTopic(""); setQuestionCount(5); setTimerHours(0); setTimerMinutes(0); setTimerSeconds(0); setTimeLeft(null); submittingRef.current = false; actionGuardRef.current = false; }}
+                <button onClick={() => { setQuestions([]); setSubmitted(false); setResult(null); setTopic(""); setQuestionCount(5); setTimerHours(0); setTimerMinutes(0); setTimerSeconds(0); setTimeLeft(null); submittingRef.current = false; actionGuardRef.current = false; setWrittenCorrect(null); }}
                   className="relative group overflow-hidden rounded-2xl p-[2px]">
                   <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
                   <div className="relative bg-brand-dark px-8 py-4 rounded-[14px] flex items-center justify-center gap-2 transition-all group-hover:bg-opacity-0">
