@@ -392,19 +392,43 @@ exports.gradeWritten = async (req, res) => {
   try {
     const { question, correctAnswer, userAnswer } = req.body;
     if (!question || !correctAnswer || !userAnswer?.trim()) {
-      return res.json({ correct: false });
+      return res.json({ correct: false, explanation: null });
     }
     const score = await gradeWithAI(question, correctAnswer, userAnswer);
-    res.json({ correct: score === 1 });
+    const correct = score === 1;
+
+    // Only generate a "why wrong" explanation when the answer is incorrect
+    let explanation = null;
+    if (!correct) {
+      explanation = await gradeWrittenExplanation(question, correctAnswer, userAnswer);
+    }
+
+    res.json({ correct, explanation });
   } catch (err) {
     console.error("Grade written error:", err.message);
-    res.json({ correct: false }); // fail-safe: don't crash quiz
+    res.json({ correct: false, explanation: null });
   }
 };
 
 /* ===================================================== */
 /* 🔧 HELPERS                                            */
 /* ===================================================== */
+
+// Targeted "why your written answer is wrong" — concise, 1-2 sentences
+async function gradeWrittenExplanation(question, correctAnswer, userAnswer) {
+  try {
+    const prompt = `You are an educational tutor. In 1-2 sentences, explain clearly why the student's answer is incorrect and what the correct answer means.
+
+Question: ${question}
+Correct Answer: ${correctAnswer}
+Student's Answer: ${userAnswer}
+
+Be specific, helpful, and concise. No markdown. No bullet points. Plain sentences only.`;
+    return (await callAI(prompt, 300)).trim();
+  } catch {
+    return `The correct answer is "${correctAnswer}". Review the concept and compare it with your answer.`;
+  }
+}
 
 async function generateExplanation(question, correctAnswer, userAnswer, options = []) {
   if (!userAnswer?.trim()) return "No answer provided.";

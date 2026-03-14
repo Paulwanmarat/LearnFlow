@@ -37,7 +37,8 @@ export default function Adaptive() {
   // ── prevents double-click on Check Answer / Next ──
   const actionGuardRef = useRef(false);
   // ── stores AI grading result for written questions ──
-  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
+  const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
+  const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
   const [timerHours,   setTimerHours]   = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(0);
@@ -126,6 +127,7 @@ export default function Adaptive() {
             userAnswer:    selected[currentIndex],
           });
           setWrittenCorrect(data.correct);
+          setWrittenExplanation(data.explanation ?? null);
         } catch {
           setWrittenCorrect(
             selected[currentIndex]?.trim().toLowerCase() === q.answer.trim().toLowerCase()
@@ -133,6 +135,7 @@ export default function Adaptive() {
         }
       } else {
         setWrittenCorrect(null);
+      setWrittenExplanation(null);
       }
       setRevealed(true);
       setTimeout(() => { actionGuardRef.current = false; }, 350);
@@ -393,20 +396,35 @@ export default function Adaptive() {
                           </div>
                         )}
 
-                        {/* Why incorrect (MCQ per-option) */}
-                        {!isCorrect && currentQuestion.explanation?.incorrect?.[selected[currentIndex]] && (
-                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                        {/* Why incorrect */}
+                        {!isCorrect && (() => {
+                          if (currentQuestion.type === "written" || currentQuestion.type === "code") {
+                            return writtenExplanation ? (
+                              <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                                  <p className="text-sm text-white/80 leading-relaxed">{writtenExplanation}</p>
+                                </div>
+                              </div>
+                            ) : null;
+                          }
+                          const perOpt = currentQuestion.explanation?.incorrect?.[selected[currentIndex]];
+                          const isGeneric = !perOpt || perOpt.toLowerCase().includes("does not correctly apply the concept");
+                          return !isGeneric ? (
+                            <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                                <p className="text-sm text-white/80 leading-relaxed">{perOpt}</p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
-                              <p className="text-sm text-white/80 leading-relaxed">
-                                {currentQuestion.explanation.incorrect[selected[currentIndex]]}
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                          ) : null;
+                        })()}
 
                         {/* Explanation */}
                         <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/10">
@@ -510,7 +528,7 @@ export default function Adaptive() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <button onClick={() => { setQuestions([]); setSubmitted(false); setResult(null); setTopic(""); setQuestionCount(5); setTimerHours(0); setTimerMinutes(0); setTimerSeconds(0); setTimeLeft(null); submittingRef.current = false; actionGuardRef.current = false; setWrittenCorrect(null); }}
+                <button onClick={() => { setQuestions([]); setSubmitted(false); setResult(null); setTopic(""); setQuestionCount(5); setTimerHours(0); setTimerMinutes(0); setTimerSeconds(0); setTimeLeft(null); submittingRef.current = false; actionGuardRef.current = false; setWrittenCorrect(null); setWrittenExplanation(null); }}
                   className="relative group overflow-hidden rounded-2xl p-[2px]">
                   <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
                   <div className="relative bg-brand-dark px-8 py-4 rounded-[14px] flex items-center justify-center gap-2 transition-all group-hover:bg-opacity-0">

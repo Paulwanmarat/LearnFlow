@@ -45,7 +45,8 @@ export default function QuizClient() {
   // ── prevents double-click on Check Answer / Next ──
   const actionGuardRef = useRef(false);
   // ── stores AI grading result for written questions ──
-  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
+  const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
+  const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -110,6 +111,7 @@ export default function QuizClient() {
             userAnswer:    selected[currentIndex],
           });
           setWrittenCorrect(data.correct);
+          setWrittenExplanation(data.explanation ?? null);
         } catch {
           // fallback: literal comparison
           setWrittenCorrect(
@@ -117,12 +119,15 @@ export default function QuizClient() {
           );
         }
       } else {
-        setWrittenCorrect(null); // not used for MCQ/TF
+        setWrittenCorrect(null);
+      setWrittenExplanation(null);
+      setWrittenExplanation(null);
       }
       setRevealed(true);
       setTimeout(() => { actionGuardRef.current = false; }, 300);
     } else {
-      setWrittenCorrect(null); // reset for next question
+      setWrittenCorrect(null);
+      setWrittenExplanation(null);
       if (currentIndex < questions.length - 1) {
         setCurrentIndex((prev) => prev + 1);
         setRevealed(false);
@@ -345,21 +350,39 @@ export default function QuizClient() {
                         </div>
                       )}
 
-                      {/* ── Why incorrect (per-option explanation for MCQ) ── */}
-                      {typeof currentQuestion.explanation === "object" && !isCorrect &&
-                        currentQuestion.explanation.incorrect?.[selected[currentIndex]] && (
-                        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                      {/* ── Why incorrect ── */}
+                      {!isCorrect && (() => {
+                        // Written/code: use AI-generated explanation
+                        if (currentQuestion.type === "written" || currentQuestion.type === "code") {
+                          return writtenExplanation ? (
+                            <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                                <p className="text-sm text-white/80 leading-relaxed">{writtenExplanation}</p>
+                              </div>
+                            </div>
+                          ) : null;
+                        }
+                        // MCQ: only show if the per-option explanation is specific (not the fallback placeholder)
+                        const perOpt = typeof currentQuestion.explanation === "object"
+                          ? currentQuestion.explanation.incorrect?.[selected[currentIndex]]
+                          : null;
+                        const isGeneric = !perOpt || perOpt.toLowerCase().includes("does not correctly apply the concept");
+                        return !isGeneric ? (
+                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                              <p className="text-sm text-white/80 leading-relaxed">{perOpt}</p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
-                            <p className="text-sm text-white/80 leading-relaxed">
-                              {currentQuestion.explanation.incorrect[selected[currentIndex]]}
-                            </p>
-                          </div>
-                        </div>
-                      )}
+                        ) : null;
+                      })()}
 
                       {/* ── Explanation / why correct is correct ── */}
                       <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/10">
