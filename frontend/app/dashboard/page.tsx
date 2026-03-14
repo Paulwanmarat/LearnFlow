@@ -9,8 +9,9 @@ import { motion, useInView, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip,
-  CartesianGrid, ResponsiveContainer, BarChart, Bar, Area, AreaChart,
+  XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
+  BarChart, Bar, Area, AreaChart, Cell,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
 import {
   Zap, Flame, Target, TrendingUp, BookOpen, Trophy,
@@ -209,9 +210,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [levelUp, setLevelUp] = useState(false);
 
-  const analyticsRef = useRef<HTMLDivElement>(null);
-  const analyticsInView = useInView(analyticsRef, { once: true, margin: "-100px" });
-
   useEffect(() => {
     API.get("/dashboard")
       .then((res) => {
@@ -396,218 +394,185 @@ export default function Dashboard() {
         </motion.div>
 
         {/* ══════════════════════════════════════
-            ANALYTICS
+            ANALYTICS + ACTIVITY (merged, no wasted space)
         ══════════════════════════════════════ */}
-        <motion.div
-          ref={analyticsRef}
-          initial={{ opacity: 0, y: 24 }}
-          animate={analyticsInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5 }}
-          className="glass-card p-6 sm:p-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <TrendingUp className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-xl font-bold text-white">Performance Analytics</h2>
-            </div>
-            {data.history.length > 0 && (
-              <span className="text-xs text-white/30 font-medium">
-                Last {Math.min(data.history.length, 10)} quizzes
-              </span>
-            )}
-          </div>
+        <div className="space-y-4">
 
-          {data.history.length === 0 ? (
-            <div className="py-16 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
-              <Brain className="w-12 h-12 text-white/20 mx-auto mb-3" />
-              <p className="text-white/40 font-medium">No quiz data yet.</p>
-              <p className="text-white/20 text-sm mt-1">Complete your first quiz to see analytics here.</p>
-              <button
-                onClick={() => router.push("/learning")}
-                className="mt-5 px-5 py-2.5 bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 text-cyan-400 text-sm font-semibold rounded-xl transition-all"
-              >
-                Start Learning →
-              </button>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-6">
-
-              {/* Area chart — score trend */}
-              <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/5">
-                <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-4">Score Trend</p>
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.4} />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                      <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 11 }} tickLine={false} dy={8} />
-                      <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 11 }} tickLine={false} domain={[0, 100]} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2.5}
-                        fill="url(#areaGrad)" dot={{ fill: "#0f172a", stroke: "#6366f1", strokeWidth: 2, r: 3 }}
-                        activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+          {/* ── Row 1: Score Trend + Score Distribution (only if data exists) ── */}
+          {data.history.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="glass-card p-6"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-cyan-400" />
+                  <h2 className="text-base font-bold text-white">Performance Analytics</h2>
                 </div>
+                <span className="text-xs text-white/30">Last {Math.min(data.history.length, 10)} quizzes</span>
               </div>
 
-              {/* Bar chart — distribution */}
-              <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/5">
-                <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-4">Score Distribution</p>
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#a855f7" stopOpacity={1} />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                      <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 11 }} tickLine={false} dy={8} />
-                      <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 11 }} tickLine={false} domain={[0, 100]} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                      <Bar dataKey="percent" fill="url(#barGrad)" radius={[5, 5, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Area — score trend */}
+                <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
+                  <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Score Trend</p>
+                  <div className="h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} dy={6} />
+                        <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} domain={[0, 100]} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2.5}
+                          fill="url(#areaGrad)"
+                          dot={{ fill: "#0f172a", stroke: "#6366f1", strokeWidth: 2, r: 3 }}
+                          activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Bar — per-quiz scores */}
+                <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
+                  <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Per-Quiz Scores</p>
+                  <div className="h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%"   stopColor="#a855f7" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} dy={6} />
+                        <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} domain={[0, 100]} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                        <Bar dataKey="percent" fill="url(#barGrad)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
-        </motion.div>
 
-        {/* ══════════════════════════════════════
-            ACTIVITY SUMMARY
-        ══════════════════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.5 }}
-          className="glass-card p-6 sm:p-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <BarChart2 className="w-5 h-5 text-violet-400" />
-              <h2 className="text-xl font-bold text-white">Learning Activity</h2>
-            </div>
-            <span className="text-xs text-white/30 font-medium">Lessons vs Quizzes</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-
-            {/* Lessons vs Quizzes comparison bars */}
-            <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/5 space-y-5">
-              <p className="text-xs text-white/40 font-semibold uppercase tracking-widest">Total Activity</p>
-
-              {/* Lessons bar */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-                    <span className="text-xs font-semibold text-white/60">Lessons Generated</span>
-                  </div>
-                  <span className="text-sm font-extrabold text-violet-400">{data.lessonsGenerated ?? 0}</span>
-                </div>
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${Math.min(((data.lessonsGenerated ?? 0) / Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1)) * 100, 100)}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className="h-full bg-gradient-to-r from-violet-500 to-purple-400 rounded-full"
-                  />
-                </div>
-              </div>
-
-              {/* Quizzes bar */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-xs font-semibold text-white/60">Quizzes Taken</span>
-                  </div>
-                  <span className="text-sm font-extrabold text-emerald-400">{data.quizzesTaken ?? 0}</span>
-                </div>
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${Math.min(((data.quizzesTaken ?? 0) / Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1)) * 100, 100)}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1, ease: "easeOut", delay: 0.15 }}
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
-                  />
-                </div>
-              </div>
-
-              {/* Accuracy bar */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-3.5 h-3.5 text-pink-400" />
-                    <span className="text-xs font-semibold text-white/60">Overall Accuracy</span>
-                  </div>
-                  <span className="text-sm font-extrabold text-pink-400">{data.accuracy ?? 0}%</span>
-                </div>
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${data.accuracy ?? 0}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
-                    className="h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full"
-                  />
-                </div>
+          {/* ── Row 2: Learning Activity (always visible) ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="glass-card p-6"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-violet-400" />
+                <h2 className="text-base font-bold text-white">Learning Activity</h2>
               </div>
             </div>
 
-            {/* Score histogram — how many quizzes landed in each score band */}
-            <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/5">
-              <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-4">Score Bands</p>
-              {data.history.length === 0 ? (
-                <div className="h-40 flex items-center justify-center text-white/20 text-sm">
-                  No quiz data yet
-                </div>
-              ) : (
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        { band: "0–40",  count: data.history.filter(h => h.percent <= 40).length },
-                        { band: "41–60", count: data.history.filter(h => h.percent > 40 && h.percent <= 60).length },
-                        { band: "61–80", count: data.history.filter(h => h.percent > 60 && h.percent <= 80).length },
-                        { band: "81–100",count: data.history.filter(h => h.percent > 80).length },
-                      ]}
-                      margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#8b5cf6" stopOpacity={1} />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                      <XAxis dataKey="band" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }} tickLine={false} />
-                      <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} allowDecimals={false} />
-                      <Tooltip
-                        cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                        contentStyle={{ backgroundColor: "#0d1227", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px" }}
-                        itemStyle={{ color: "#fff" }}
-                        formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, "Count"]}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+              {/* Activity bars */}
+              <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5 space-y-4">
+                <p className="text-xs text-white/40 font-semibold uppercase tracking-widest">Progress Bars</p>
+
+                {[
+                  { label: "Lessons Generated", value: data.lessonsGenerated ?? 0, max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-violet-500 to-purple-400", accent: "text-violet-400", icon: <Sparkles className="w-3 h-3" /> },
+                  { label: "Quizzes Taken",     value: data.quizzesTaken   ?? 0, max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-emerald-500 to-teal-400",  accent: "text-emerald-400", icon: <BookOpen className="w-3 h-3" /> },
+                  { label: "Accuracy",          value: data.accuracy       ?? 0, max: 100,                                                                  color: "from-pink-500 to-rose-400",    accent: "text-pink-400",    icon: <Target className="w-3 h-3" />,  suffix: "%" },
+                ].map(({ label, value, max, color, accent, icon, suffix = "" }) => (
+                  <div key={label}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <div className={`flex items-center gap-1.5 ${accent} text-xs font-medium`}>
+                        {icon} {label}
+                      </div>
+                      <span className={`text-xs font-extrabold ${accent}`}>{value}{suffix}</span>
+                    </div>
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${Math.min((value / max) * 100, 100)}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full bg-gradient-to-r ${color} rounded-full`}
                       />
-                      <Bar dataKey="count" fill="url(#bandGrad)" radius={[5, 5, 0, 0]} />
-                    </BarChart>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Score bands histogram */}
+              <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
+                <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Score Bands</p>
+                {data.history.length === 0 ? (
+                  <div className="h-36 flex items-center justify-center text-white/20 text-xs">No data yet</div>
+                ) : (
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { band: "0–40",   count: data.history.filter(h => h.percent <= 40).length,                            fill: "#ef4444" },
+                          { band: "41–60",  count: data.history.filter(h => h.percent > 40  && h.percent <= 60).length,         fill: "#f97316" },
+                          { band: "61–80",  count: data.history.filter(h => h.percent > 60  && h.percent <= 80).length,         fill: "#eab308" },
+                          { band: "81–100", count: data.history.filter(h => h.percent > 80).length,                             fill: "#22c55e" },
+                        ]}
+                        margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="band" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }} tickLine={false} />
+                        <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} allowDecimals={false} />
+                        <Tooltip
+                          cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                          contentStyle={{ backgroundColor: "#0d1227", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px" }}
+                          itemStyle={{ color: "#fff" }}
+                          formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, ""]}
+                        />
+                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                          {["#ef4444","#f97316","#eab308","#22c55e"].map((color, i) => (
+                            <Cell key={i} fill={color} fillOpacity={0.85} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              {/* Radar — skill profile */}
+              <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
+                <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Skill Profile</p>
+                <div className="h-36">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart
+                      data={[
+                        { skill: "Accuracy",  value: Math.min(data.accuracy ?? 0, 100) },
+                        { skill: "Streak",    value: Math.min((data.streak ?? 0) * 10, 100) },
+                        { skill: "Avg Score", value: Math.min(avgScore, 100) },
+                        { skill: "Level",     value: Math.min((data.level ?? 1) * 10, 100) },
+                        { skill: "Quizzes",   value: Math.min((data.quizzesTaken ?? 0) * 5, 100) },
+                      ]}
+                      cx="50%" cy="50%" outerRadius="70%"
+                    >
+                      <PolarGrid stroke="rgba(255,255,255,0.08)" />
+                      <PolarAngleAxis dataKey="skill" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 9 }} />
+                      <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.25} strokeWidth={1.5} />
+                    </RadarChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
 
         {/* ══════════════════════════════════════
             ABOUT COGNIVRA
