@@ -424,20 +424,19 @@ export default function SettingsPage() {
 
                       {/* Social platforms */}
                       {[
-                        { key: "github",    label: "GitHub",       placeholder: "your-username",      emoji: "🐙" },
-                        { key: "instagram", label: "Instagram",    placeholder: "@handle",             emoji: "📸" },
-                        { key: "facebook",  label: "Facebook",     placeholder: "your-username",      emoji: "👍" },
-                        { key: "twitter",   label: "Twitter / X",  placeholder: "@handle",             emoji: "🐦" },
-                        { key: "youtube",   label: "YouTube",      placeholder: "@channel",            emoji: "▶️" },
-                        { key: "twitch",    label: "Twitch",       placeholder: "your-channel",       emoji: "🎮" },
-                        { key: "discord",   label: "Discord",      placeholder: "username#0000",       emoji: "💬" },
-                        { key: "steam",     label: "Steam",        placeholder: "your-profile-id",    emoji: "🎲" },
-                        { key: "roblox",    label: "Roblox",       placeholder: "YourUsername",       emoji: "🧱" },
-                        { key: "epic",      label: "Epic Games",   placeholder: "Your Epic ID",       emoji: "🕹️" },
-                      ].map(({ key, label, placeholder, emoji }) => (
+                        { key: "github",    label: "GitHub",       placeholder: "your-username",},
+                        { key: "instagram", label: "Instagram",    placeholder: "@handle",},
+                        { key: "facebook",  label: "Facebook",     placeholder: "your-username",},
+                        { key: "twitter",   label: "Twitter / X",  placeholder: "@handle",},
+                        { key: "youtube",   label: "YouTube",      placeholder: "@channel",},
+                        { key: "twitch",    label: "Twitch",       placeholder: "your-channel",},
+                        { key: "discord",   label: "Discord",      placeholder: "username#0000",},
+                        { key: "steam",     label: "Steam",        placeholder: "your-profile-id",},
+                        { key: "roblox",    label: "Roblox",       placeholder: "YourUsername",},
+                        { key: "epic",      label: "Epic Games",   placeholder: "Your Epic ID",},
+                      ].map(({ key, label, placeholder }) => (
                         <div key={key}>
                           <label className="flex items-center gap-1.5 text-xs font-medium text-white/40 mb-2">
-                            <span>{emoji}</span> {label}
                           </label>
                           <div className="relative">
                             <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
