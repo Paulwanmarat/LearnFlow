@@ -115,18 +115,27 @@ export default function SettingsPage() {
     if (!username.trim()) return showToast("error", "Username cannot be empty");
     try {
       setSaving(true);
-      await API.put("/auth/profile", {
+      const { data } = await API.put("/auth/profile", {
         username: username.trim(),
         country,
         avatar: avatarUrl,
         bio,
         socialLinks,
       });
+
+      // Sync form fields from the returned user so UI matches DB immediately
+      const u = data?.user ?? data;
+      if (u) {
+        setUser(u);
+        setUsername(u.username ?? "");
+        setCountry(u.country ?? "");
+        setAvatarUrl(u.avatar ?? "");
+        setPreviewSrc(u.avatar ?? "");
+        setBio(u.bio ?? "");
+        if (u.socialLinks) setSocialLinks((prev: Record<string, string>) => ({ ...prev, ...u.socialLinks }));
+      }
+
       showToast("success", "Profile updated!");
-      // Refresh user data
-      const res = await API.get("/dashboard");
-      const u = res.data?.user || res.data;
-      setUser(u);
     } catch (err: any) {
       showToast("error", err.response?.data?.message || "Failed to save");
     } finally {

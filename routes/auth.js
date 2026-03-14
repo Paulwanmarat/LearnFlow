@@ -209,7 +209,7 @@ router.post("/google/complete", async (req, res) => {
       password,
       googleId: decoded.googleId,
       avatar: decoded.avatar || "https://i.imgur.com/6VBx3io.png",
-      country: country.toUpperCase(),
+      country: country.trim(),
       league: "Bronze",
       xp: 0,
     });
@@ -246,7 +246,7 @@ router.post("/register", async (req, res) => {
       username,
       email,
       password,
-      country: country.toUpperCase(),
+      country: country.trim(),
     });
 
     res.status(201).json({
@@ -408,7 +408,7 @@ router.post("/reset-password", async (req, res) => {
 
 router.put("/profile", protect, async (req, res) => {
   try {
-    const { username, country, avatar } = req.body;
+    const { username, country, avatar, bio, socialLinks } = req.body;
     const user = await User.findById(req.user.id);
 
     if (!user) {
@@ -434,7 +434,9 @@ router.put("/profile", protect, async (req, res) => {
     }
 
     if (country !== undefined) {
-      user.country = country.toUpperCase();
+      // Store exactly as sent — full country name from the dropdown (e.g. "Thailand")
+      // Do NOT uppercase here; uppercasing corrupts full names and breaks the select on reload
+      user.country = country.trim();
     }
 
     if (avatar !== undefined) {
@@ -444,6 +446,21 @@ router.put("/profile", protect, async (req, res) => {
         return res.status(400).json({ success: false, message: "Invalid avatar format" });
       }
       user.avatar = avatar;
+    }
+
+    if (bio !== undefined) {
+      user.bio = String(bio).slice(0, 200);
+    }
+
+    if (socialLinks !== undefined && typeof socialLinks === "object") {
+      const allowed = ["github","instagram","facebook","twitter","youtube","twitch","discord","steam","roblox","epic"];
+      const cleaned = {};
+      for (const key of allowed) {
+        if (typeof socialLinks[key] === "string") {
+          cleaned[key] = socialLinks[key].trim().slice(0, 100);
+        }
+      }
+      user.socialLinks = cleaned;
     }
 
     await user.save({ validateBeforeSave: false });

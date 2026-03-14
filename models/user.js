@@ -1,10 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
-/* ===================================================== */
-/* 🏅 ACHIEVEMENT SCHEMA */
-/* ===================================================== */
-
 const achievementSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 50 },
@@ -12,10 +8,6 @@ const achievementSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
-/* ===================================================== */
-/* 📜 QUIZ HISTORY */
-/* ===================================================== */
 
 const historySchema = new mongoose.Schema(
   {
@@ -28,10 +20,6 @@ const historySchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
-/* ===================================================== */
-/* 👤 USER SCHEMA */
-/* ===================================================== */
 
 const userSchema = new mongoose.Schema(
   {
@@ -57,17 +45,15 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Optional — Google-only accounts have no password
     password: {
       type: String,
       minlength: 8,
       select: false,
     },
 
-    // ── Google OAuth ──────────────────────────────────
     googleId: {
       type: String,
-      sparse: true,   // unique index that allows multiple nulls
+      sparse: true,
       unique: true,
       select: false,
     },
@@ -79,8 +65,7 @@ const userSchema = new mongoose.Schema(
 
     country: {
       type: String,
-      default: "US",
-      uppercase: true,
+      default: "",
       trim: true,
       index: true,
     },
@@ -110,25 +95,25 @@ const userSchema = new mongoose.Schema(
     /* ================= RANK TRACKING ================= */
 
     previousRank: { type: Number, default: 0 },
-    currentRank: { type: Number, default: 0 },
+    currentRank:  { type: Number, default: 0 },
 
     /* ================= ANTI-CHEAT ================= */
 
     lastQuizSubmittedAt: { type: Date },
-    lastQuizDuration: { type: Number, default: 0 },
-    suspiciousFlags: { type: Number, default: 0 },
+    lastQuizDuration:    { type: Number, default: 0 },
+    suspiciousFlags:     { type: Number, default: 0 },
 
     /* ================= PERFORMANCE ================= */
 
     lessonsGenerated: { type: Number, default: 0 },
-    quizzesTaken: { type: Number, default: 0 },
+    quizzesTaken:     { type: Number, default: 0 },
 
-    totalScore: { type: Number, default: 0 },
-    totalCorrect: { type: Number, default: 0 },
+    totalScore:     { type: Number, default: 0 },
+    totalCorrect:   { type: Number, default: 0 },
     totalQuestions: { type: Number, default: 0 },
 
     averageScore: { type: Number, default: 0 },
-    accuracy: { type: Number, default: 0 },
+    accuracy:     { type: Number, default: 0 },
 
     learningTime: { type: Number, default: 0 },
 
@@ -139,14 +124,35 @@ const userSchema = new mongoose.Schema(
       default: "https://i.imgur.com/6VBx3io.png",
     },
 
+    // ── Bio & Social ──────────────────────────────────
+    bio: {
+      type: String,
+      default: "",
+      maxlength: [200, "Bio cannot exceed 200 characters"],
+      trim: true,
+    },
+
+    socialLinks: {
+      github:    { type: String, default: "" },
+      instagram: { type: String, default: "" },
+      facebook:  { type: String, default: "" },
+      twitter:   { type: String, default: "" },
+      youtube:   { type: String, default: "" },
+      twitch:    { type: String, default: "" },
+      discord:   { type: String, default: "" },
+      steam:     { type: String, default: "" },
+      roblox:    { type: String, default: "" },
+      epic:      { type: String, default: "" },
+    },
+
     achievements: { type: [achievementSchema], default: [] },
-    history: { type: [historySchema], default: [] },
+    history:      { type: [historySchema],     default: [] },
   },
   { timestamps: true }
 );
 
 /* ===================================================== */
-/* 🚀 INDEX OPTIMIZATION */
+/* 🚀 INDEX OPTIMIZATION                                 */
 /* ===================================================== */
 
 userSchema.index({ xp: -1 });
@@ -155,38 +161,36 @@ userSchema.index({ country: 1, xp: -1 });
 userSchema.index({ league: 1, xp: -1 });
 
 /* ===================================================== */
-/* 🔐 PASSWORD HASH */
+/* 🔐 PASSWORD HASH                                      */
 /* ===================================================== */
 
 userSchema.pre("save", async function () {
-  // Only hash if password exists and was modified
   if (!this.isModified("password") || !this.password) return;
-
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  if (!this.password) return false; // Google-only account
+  if (!this.password) return false;
   return bcrypt.compare(enteredPassword, this.password);
 };
 
 /* ===================================================== */
-/* 🎯 LEVEL + LEAGUE */
+/* 🎯 LEVEL + LEAGUE                                     */
 /* ===================================================== */
 
 userSchema.methods.recalculateLevel = function () {
   this.level = Math.floor(this.xp / 100) + 1;
 
-  if (this.xp >= 10000) this.league = "Diamond";
-  else if (this.xp >= 7000) this.league = "Platinum";
-  else if (this.xp >= 4000) this.league = "Gold";
-  else if (this.xp >= 2000) this.league = "Silver";
-  else this.league = "Bronze";
+  if      (this.xp >= 10000) this.league = "Diamond";
+  else if (this.xp >= 7000)  this.league = "Platinum";
+  else if (this.xp >= 4000)  this.league = "Gold";
+  else if (this.xp >= 2000)  this.league = "Silver";
+  else                        this.league = "Bronze";
 };
 
 /* ===================================================== */
-/* 🛡 QUIZ UPDATE (ANTI-CHEAT HARDENED) */
+/* 🛡 QUIZ UPDATE (ANTI-CHEAT HARDENED)                  */
 /* ===================================================== */
 
 userSchema.methods.updatePerformance = function (
@@ -204,30 +208,29 @@ userSchema.methods.updatePerformance = function (
   }
 
   const now = new Date();
-
   if (this.lastQuizSubmittedAt && now - this.lastQuizSubmittedAt < 5000) {
     this.suspiciousFlags += 1;
     throw new Error("Quiz spam detected");
   }
 
   this.lastQuizSubmittedAt = now;
-  this.lastQuizDuration = durationSeconds;
-  this.learningTime += durationSeconds;
+  this.lastQuizDuration     = durationSeconds;
+  this.learningTime        += durationSeconds;
 
   const percent = Math.round((score / total) * 100);
 
-  this.quizzesTaken += 1;
-  this.totalScore += score;
-  this.totalCorrect += score;
-  this.totalQuestions += total;
+  this.quizzesTaken     += 1;
+  this.totalScore       += score;
+  this.totalCorrect     += score;
+  this.totalQuestions   += total;
 
   this.averageScore = Number((this.totalScore / this.quizzesTaken).toFixed(2));
-  this.accuracy = Math.round((this.totalCorrect / this.totalQuestions) * 100);
+  this.accuracy     = Math.round((this.totalCorrect / this.totalQuestions) * 100);
 
   this.history.push({ score, total, percent, topic, duration: durationSeconds });
 
   const earnedXp = score * 10;
-  this.xp += earnedXp;
+  this.xp       += earnedXp;
   this.weeklyXp += earnedXp;
 
   this.recalculateLevel();
@@ -237,7 +240,7 @@ userSchema.methods.updatePerformance = function (
 };
 
 /* ===================================================== */
-/* 🔥 STREAK */
+/* 🔥 STREAK                                             */
 /* ===================================================== */
 
 userSchema.methods.updateStreak = function () {
@@ -250,30 +253,25 @@ userSchema.methods.updateStreak = function () {
     const last = new Date(this.lastQuizDate);
     last.setHours(0, 0, 0, 0);
     const diffDays = Math.floor((today - last) / (1000 * 60 * 60 * 24));
-    if (diffDays === 1) this.streak += 1;
-    else if (diffDays > 1) this.streak = 1;
+    if      (diffDays === 1) this.streak += 1;
+    else if (diffDays  >  1) this.streak  = 1;
   }
-
   this.lastQuizDate = new Date();
 };
 
 /* ===================================================== */
-/* 🧠 DIFFICULTY */
+/* 🧠 DIFFICULTY                                         */
 /* ===================================================== */
 
 userSchema.methods.updateDifficulty = function (percent) {
-  if (percent >= 85 && this.difficulty === "Beginner")
-    this.difficulty = "Intermediate";
-  else if (percent >= 85 && this.difficulty === "Intermediate")
-    this.difficulty = "Advanced";
-  else if (percent <= 40 && this.difficulty === "Advanced")
-    this.difficulty = "Intermediate";
-  else if (percent <= 40 && this.difficulty === "Intermediate")
-    this.difficulty = "Beginner";
+  if      (percent >= 85 && this.difficulty === "Beginner")     this.difficulty = "Intermediate";
+  else if (percent >= 85 && this.difficulty === "Intermediate")  this.difficulty = "Advanced";
+  else if (percent <= 40 && this.difficulty === "Advanced")      this.difficulty = "Intermediate";
+  else if (percent <= 40 && this.difficulty === "Intermediate")  this.difficulty = "Beginner";
 };
 
 /* ===================================================== */
-/* 🏅 ACHIEVEMENTS */
+/* 🏅 ACHIEVEMENTS                                       */
 /* ===================================================== */
 
 userSchema.methods.unlockAchievement = function (name) {
@@ -283,13 +281,13 @@ userSchema.methods.unlockAchievement = function (name) {
 };
 
 userSchema.methods.checkAchievements = function () {
-  if (this.streak === 7) this.unlockAchievement("7 Day Streak 🔥");
-  if (this.quizzesTaken === 50) this.unlockAchievement("Quiz Master 🧠");
-  if (this.xp >= 5000) this.unlockAchievement("XP Warrior ⚡");
+  if (this.streak      === 7)    this.unlockAchievement("7 Day Streak 🔥");
+  if (this.quizzesTaken === 50)  this.unlockAchievement("Quiz Master 🧠");
+  if (this.xp          >= 5000) this.unlockAchievement("XP Warrior ⚡");
 };
 
 /* ===================================================== */
-/* 🛡 SAFE JSON */
+/* 🛡 SAFE JSON                                          */
 /* ===================================================== */
 
 userSchema.methods.toJSON = function () {
