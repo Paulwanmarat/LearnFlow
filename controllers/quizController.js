@@ -417,8 +417,23 @@ Rules: Be clear and educational. No markdown. No extra commentary. Keep it conci
 async function gradeWithAI(question, modelAnswer, userAnswer) {
   if (!userAnswer?.trim()) return 0;
   try {
-    const result = await callAI(`Strict grading. Return only 1 or 0.\nQuestion: ${question}\nCorrect: ${modelAnswer}\nStudent: ${userAnswer}`);
-    return Number(result.trim()) === 1 ? 1 : 0;
+    const prompt = `You are a strict but fair educational grader.
+
+Question: ${question}
+Expected Answer: ${modelAnswer}
+Student Answer: ${userAnswer}
+
+Grading rules:
+- Award 1 if the student's answer is CORRECT or EQUIVALENT in meaning
+- Award 1 if the answer conveys the same concept even with different wording
+- Award 1 if it is a reasonable synonym, paraphrase, or alternate correct form
+- Award 1 if it captures the core idea even if not word-for-word identical
+- Award 0 only if the student's answer is clearly WRONG, off-topic, or missing the key concept
+- Ignore minor spelling mistakes, capitalisation, or punctuation differences
+
+Respond with ONLY the digit 1 or 0. Nothing else.`;
+    const result = await callAI(prompt, 200);
+    return Number(result.trim().replace(/[^01]/g, "").slice(0, 1)) === 1 ? 1 : 0;
   } catch { return 0; }
 }
 

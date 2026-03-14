@@ -9,552 +9,435 @@ import Confetti from "react-confetti";
 import * as Lucide from "lucide-react";
 
 interface Explanation {
-    correct: string;
-    incorrect: Record<string, string>;
+  correct: string;
+  incorrect: Record<string, string>;
 }
 
 interface Question {
-    question: string;
-    type: "mcq" | "tf" | "written" | "code";
-    options?: string[];
-    answer: string;
-    explanation?: string | Explanation;
-    difficulty?: number;
+  question: string;
+  type: "mcq" | "tf" | "written" | "code";
+  options?: string[];
+  answer: string;
+  explanation?: string | Explanation;
+  difficulty?: number;
 }
 
 export default function QuizClient() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-    const summary = searchParams.get("summary") || "";
-    const topic = searchParams.get("topic") || "";
-    const count = Number(searchParams.get("count") || 5);
-    const timerPerQuestion = Number(searchParams.get("timer") || 0);
+  const summary          = searchParams.get("summary") || "";
+  const topic            = searchParams.get("topic")   || "";
+  const count            = Number(searchParams.get("count") || 5);
+  const timerPerQuestion = Number(searchParams.get("timer") || 0);
 
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [selected, setSelected] = useState<string[]>([]);
-    const [selectedLanguage, setSelectedLanguage] = useState<string[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [submitted, setSubmitted] = useState(false);
-    const [result, setResult] = useState<any>(null);
-    const [timeLeft, setTimeLeft] = useState<number | null>(null);
-    const [revealed, setRevealed] = useState(false);
-    const [quizSessionId] = useState(() => crypto.randomUUID());
-    const submittingRef = useRef(false);
+  const [questions,        setQuestions]        = useState<Question[]>([]);
+  const [selected,         setSelected]         = useState<string[]>([]);
+  const [selectedLanguage, setSelectedLanguage] = useState<string[]>([]);
+  const [currentIndex,     setCurrentIndex]     = useState(0);
+  const [submitted,        setSubmitted]        = useState(false);
+  const [result,           setResult]           = useState<any>(null);
+  const [timeLeft,         setTimeLeft]         = useState<number | null>(null);
+  const [revealed,         setRevealed]         = useState(false);
+  const [quizSessionId] = useState(() => crypto.randomUUID());
 
-    /* ================= FORMAT TIME ================= */
-    const formatTime = (seconds: number) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+  const submittingRef  = useRef(false);
+  // ── prevents double-click on Check Answer / Next ──
+  const actionGuardRef = useRef(false);
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+  };
+
+  /* ================= LOAD QUIZ ================= */
+  useEffect(() => {
+    const loadQuiz = async () => {
+      const res = await API.post("/quiz/generate", { content: summary, count });
+      const normalized = res.data.map((q: Question) =>
+        q.type === "tf" && (!q.options || q.options.length === 0)
+          ? { ...q, options: ["True", "False"] }
+          : q
+      );
+      setQuestions(normalized);
+      setSelected(new Array(normalized.length).fill(""));
+      setSelectedLanguage(new Array(normalized.length).fill("javascript"));
     };
+    if (summary) loadQuiz();
+  }, []);
 
-    /* ================= LOAD QUIZ ================= */
-    useEffect(() => {
-        const loadQuiz = async () => {
-            const res = await API.post("/quiz/generate", {
-                content: summary,
-                count,
-            });
+  /* ================= TIMER ================= */
+  useEffect(() => {
+    if (timerPerQuestion <= 0 || submitted) return;
+    setTimeLeft(timerPerQuestion);
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (!prev) return timerPerQuestion;
+        if (prev <= 1) { handleRevealOrNext(); return timerPerQuestion; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentIndex, revealed]);
 
-            const normalized = res.data.map((q: Question) =>
-                q.type === "tf" && (!q.options || q.options.length === 0)
-                    ? { ...q, options: ["True", "False"] }
-                    : q
-            );
+  const currentQuestion = questions[currentIndex];
+  const isCorrect =
+    selected[currentIndex]?.trim().toLowerCase() ===
+    currentQuestion?.answer?.trim().toLowerCase();
+  const progress =
+    questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
-            setQuestions(normalized);
-            setSelected(new Array(normalized.length).fill(""));
-            setSelectedLanguage(new Array(normalized.length).fill("javascript"));
-        };
+  /* ================= HANDLE REVEAL / NEXT ================= */
+  const handleRevealOrNext = () => {
+    // ── click guard: ignore if already processing ──
+    if (actionGuardRef.current) return;
+    actionGuardRef.current = true;
 
-        if (summary) loadQuiz();
-    }, []);
+    if (!revealed) {
+      setRevealed(true);
+      // unlock after reveal animation (300 ms)
+      setTimeout(() => { actionGuardRef.current = false; }, 300);
+    } else {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+        setRevealed(false);
+        setTimeout(() => { actionGuardRef.current = false; }, 300);
+      } else {
+        submitQuiz();
+        // submitQuiz sets submittingRef so we don't unlock the guard
+      }
+    }
+  };
 
-    /* ================= TIMER ================= */
-    useEffect(() => {
-        if (timerPerQuestion <= 0 || submitted) return;
+  const submitQuiz = async () => {
+    if (submitted || submittingRef.current) return;
+    submittingRef.current = true;
 
-        setTimeLeft(timerPerQuestion);
+    const formatted = questions.map((q, i) => ({
+      question:      q.question,
+      type:          q.type,
+      correctAnswer: q.answer,
+      userAnswer:    selected[i],
+      language:      q.type === "code" ? selectedLanguage[i] : undefined,
+      topic,
+      difficulty:    q.difficulty || 1,
+    }));
 
-        const interval = setInterval(() => {
-            setTimeLeft((prev) => {
-                if (!prev) return timerPerQuestion;
-                if (prev <= 1) {
-                    handleRevealOrNext();
-                    return timerPerQuestion;
-                }
-                return prev - 1;
-            });
-        }, 1000);
+    const res = await API.post("/quiz/submit", { answers: formatted, quizSessionId });
+    setResult(res.data);
+    setSubmitted(true);
+  };
 
-        return () => clearInterval(interval);
-    }, [currentIndex, revealed]);
+  /* ================= TIMER COLORS ================= */
+  const timerColor =
+    timeLeft !== null && timeLeft <= 10
+      ? { badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse", bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" }
+      : timeLeft !== null && timeLeft <= 30
+        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",          bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
+        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",  bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
 
-    const currentQuestion = questions[currentIndex];
+  return (
+    <ProtectedRoute>
+      {submitted && result && <Confetti recycle={false} numberOfPieces={500} gravity={0.15} />}
 
-    const isCorrect =
-        selected[currentIndex]?.trim().toLowerCase() ===
-        currentQuestion?.answer?.trim().toLowerCase();
+      <div className="relative min-h-screen pt-24 pb-12 px-4 sm:px-8 max-w-5xl mx-auto space-y-12">
 
-    const progress =
-        questions.length === 0
-            ? 0
-            : ((currentIndex + 1) / questions.length) * 100;
+        {/* Header */}
+        {!submitted && (
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row justify-between items-center gap-6 glass-card p-6 md:p-8">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-brand-accent1/10 rounded-xl border border-brand-accent1/20 text-brand-accent1 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                <Lucide.Brain className="w-8 h-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight">
+                  Knowledge <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">Check</span>
+                </h1>
+                <p className="text-white/50 text-sm mt-1">Topic: <span className="text-white font-medium">{topic}</span></p>
+              </div>
+            </div>
 
-    const handleRevealOrNext = () => {
-        if (!revealed) {
-            setRevealed(true);
-        } else {
-            if (currentIndex < questions.length - 1) {
-                setCurrentIndex((prev) => prev + 1);
-                setRevealed(false);
-            } else {
-                submitQuiz();
-            }
-        }
-    };
+            <div className="flex-1 w-full max-w-sm ml-auto">
+              <div className="flex justify-between text-sm font-semibold mb-2 uppercase tracking-wide">
+                <span className="text-white/50">Progress</span>
+                <span className="text-brand-accent1">{currentIndex + 1} / {questions.length}</span>
+              </div>
+              <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 relative">
+                <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
+                  transition={{ ease: "easeInOut", duration: 0.5 }}
+                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-brand-accent1 to-brand-accent2 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+              </div>
+            </div>
+          </motion.div>
+        )}
 
-    const submitQuiz = async () => {
-        if (submitted || submittingRef.current) return;
+        {/* Timer */}
+        {!submitted && timerPerQuestion > 0 && timeLeft !== null && (
+          <div className="sticky top-[72px] z-40 backdrop-blur-md space-y-2">
+            <div className="flex justify-end pr-1">
+              <motion.div key={timeLeft} initial={{ scale: 1.15, opacity: 0.6 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-bold font-mono tracking-widest shadow-lg ${timerColor.badge}`}>
+                <Lucide.Timer className="w-4 h-4" />
+                {formatTime(timeLeft)}
+              </motion.div>
+            </div>
+            <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden border border-white/5">
+              <motion.div initial={{ width: "100%" }}
+                animate={{ width: `${(timeLeft / timerPerQuestion) * 100}%` }}
+                transition={{ duration: 1, ease: "linear" }}
+                className={`h-full transition-colors duration-500 ${timerColor.bar}`} />
+            </div>
+          </div>
+        )}
 
-        submittingRef.current = true;
+        {/* Question */}
+        <AnimatePresence mode="wait">
+          {currentQuestion && !submitted && (
+            <motion.div key={currentIndex}
+              initial={{ opacity: 0, x: 20, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -20, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="glass-card p-6 md:p-10 relative overflow-hidden space-y-8 min-h-[500px] flex flex-col">
 
-        const formatted = questions.map((q, i) => ({
-            question: q.question,
-            type: q.type,
-            correctAnswer: q.answer,
-            userAnswer: selected[i],
-            language: q.type === "code" ? selectedLanguage[i] : undefined,
-            topic,
-            difficulty: q.difficulty || 1,
-        }));
+              <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent1/10 blur-[80px] rounded-full pointer-events-none" />
 
-        const res = await API.post("/quiz/submit", {
-            answers: formatted,
-            quizSessionId,
-        });
+              <div className="flex justify-between items-start gap-4">
+                <h2 className="text-2xl md:text-3xl font-bold leading-relaxed text-white">
+                  {currentQuestion.question}
+                </h2>
+                <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
+                  {currentQuestion.type === "mcq" ? "Multiple Choice"
+                    : currentQuestion.type === "tf" ? "True / False"
+                    : currentQuestion.type === "written" ? "Written" : "Code"}
+                </div>
+              </div>
 
-        setResult(res.data);
-        setSubmitted(true);
-    };
+              <div className="flex-1">
+                {currentQuestion.type === "mcq" || currentQuestion.type === "tf" ? (
+                  <div className="grid grid-cols-1 gap-4">
+                    {currentQuestion.options?.map((opt, j) => {
+                      const isSelected = selected[currentIndex] === opt;
+                      let style = "border-white/10 hover:border-white/30";
+                      let indicatorStyle = "border-white/20 text-transparent";
 
-    /* ================= TIMER COLOR HELPERS ================= */
-    const timerColor =
-        timeLeft !== null && timeLeft <= 10
-            ? {
-                badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse",
-                bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]",
-            }
-            : timeLeft !== null && timeLeft <= 30
-                ? {
-                    badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",
-                    bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
-                }
-                : {
-                    badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",
-                    bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]",
-                };
+                      if (revealed) {
+                        if (opt === currentQuestion.answer) {
+                          style = "border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]";
+                          indicatorStyle = "text-emerald-400 border-emerald-400";
+                        } else if (isSelected && !isCorrect) {
+                          style = "border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]";
+                          indicatorStyle = "text-rose-400 border-rose-400";
+                        } else {
+                          style = "border-white/5 opacity-50";
+                        }
+                      } else if (isSelected) {
+                        style = "border-brand-accent1 bg-brand-accent1/10 shadow-[0_0_20px_rgba(99,102,241,0.1)] translate-x-2";
+                        indicatorStyle = "text-brand-accent1 border-brand-accent1";
+                      }
 
-    return (
-        <ProtectedRoute>
-            {submitted && result && (
-                <Confetti recycle={false} numberOfPieces={500} gravity={0.15} />
-            )}
+                      return (
+                        <button key={j} disabled={revealed}
+                          onClick={() => {
+                            const copy = [...selected];
+                            copy[currentIndex] = opt;
+                            setSelected(copy);
+                          }}
+                          className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 relative overflow-hidden group ${style}`}>
+                          <span className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="flex items-center gap-4 relative z-10">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${indicatorStyle}`}>
+                              {(isSelected || (revealed && opt === currentQuestion.answer)) && (
+                                <div className="w-3 h-3 bg-current rounded-full" />
+                              )}
+                            </div>
+                            <span className="text-lg font-medium tracking-wide">{opt}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <textarea disabled={revealed} value={selected[currentIndex] || ""}
+                    onChange={(e) => {
+                      const copy = [...selected];
+                      copy[currentIndex] = e.target.value;
+                      setSelected(copy);
+                    }}
+                    className="w-full p-5 rounded-2xl bg-black/30 border border-white/10 min-h-[150px]" />
+                )}
 
-            <div className="relative min-h-screen pt-24 pb-12 px-4 sm:px-8 max-w-5xl mx-auto space-y-12">
-
-                {/* Header */}
-                {!submitted && (
+                {/* Explanation */}
+                <AnimatePresence>
+                  {revealed && (
                     <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-col md:flex-row justify-between items-center gap-6 glass-card p-6 md:p-8"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="mt-6 space-y-3"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-brand-accent1/10 rounded-xl border border-brand-accent1/20 text-brand-accent1 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-                                <Lucide.Brain className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-extrabold tracking-tight">
-                                    Knowledge{" "}
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">
-                                        Check
-                                    </span>
-                                </h1>
-                                <p className="text-white/50 text-sm mt-1">
-                                    Topic:{" "}
-                                    <span className="text-white font-medium">{topic}</span>
-                                </p>
-                            </div>
+                      {/* ── Result header ── */}
+                      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border ${
+                        isCorrect
+                          ? "bg-emerald-500/10 border-emerald-500/25"
+                          : "bg-rose-500/10 border-rose-500/25"
+                      }`}>
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                        }`}>
+                          {isCorrect
+                            ? <Lucide.Check className="w-5 h-5" />
+                            : <Lucide.X className="w-5 h-5" />}
                         </div>
+                        <h3 className={`text-lg font-extrabold ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
+                          {isCorrect ? "Correct! Well done." : "Not quite right"}
+                        </h3>
+                      </div>
 
-                        {/* Progress */}
-                        <div className="flex-1 w-full max-w-sm ml-auto">
-                            <div className="flex justify-between text-sm font-semibold mb-2 uppercase tracking-wide">
-                                <span className="text-white/50">Progress</span>
-                                <span className="text-brand-accent1">
-                                    {currentIndex + 1} / {questions.length}
-                                </span>
-                            </div>
-                            <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 relative">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${progress}%` }}
-                                    transition={{ ease: "easeInOut", duration: 0.5 }}
-                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-brand-accent1 to-brand-accent2 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
-                                />
-                            </div>
+                      {/* ── Correct answer box (always shown when wrong) ── */}
+                      {!isCorrect && (
+                        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/25 shadow-[0_0_16px_rgba(16,185,129,0.08)]">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Lucide.CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-emerald-500/70 uppercase tracking-widest font-bold mb-1">Correct Answer</p>
+                            <p className="text-base font-semibold text-emerald-300 leading-relaxed">{currentQuestion.answer}</p>
+                          </div>
                         </div>
+                      )}
+
+                      {/* ── Your answer box (shown when wrong) ── */}
+                      {!isCorrect && selected[currentIndex] && (
+                        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-rose-500/8 border border-rose-500/25">
+                          <div className="w-7 h-7 rounded-lg bg-rose-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Lucide.XCircle className="w-4 h-4 text-rose-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-rose-500/70 uppercase tracking-widest font-bold mb-1">Your Answer</p>
+                            <p className="text-base font-semibold text-rose-300 leading-relaxed">{selected[currentIndex]}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── Why incorrect (per-option explanation for MCQ) ── */}
+                      {typeof currentQuestion.explanation === "object" && !isCorrect &&
+                        currentQuestion.explanation.incorrect?.[selected[currentIndex]] && (
+                        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                            <p className="text-sm text-white/80 leading-relaxed">
+                              {currentQuestion.explanation.incorrect[selected[currentIndex]]}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── Explanation / why correct is correct ── */}
+                      <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                        <div className="w-7 h-7 rounded-lg bg-brand-accent1/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Lucide.BookOpen className="w-4 h-4 text-brand-accent1" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-brand-accent1/60 uppercase tracking-widest font-bold mb-1">Explanation</p>
+                          <p className="text-sm text-white/75 leading-relaxed">
+                            {typeof currentQuestion.explanation === "object"
+                              ? currentQuestion.explanation.correct
+                              : currentQuestion.explanation || "Great understanding of this concept."}
+                          </p>
+                        </div>
+                      </div>
                     </motion.div>
-                )}
-
-                {/* ================= TIMER BAR + COUNTDOWN ================= */}
-                {!submitted && timerPerQuestion > 0 && timeLeft !== null && (
-                    <div className="sticky top-[72px] z-40 backdrop-blur-md space-y-2">
-
-                        {/* Countdown Badge */}
-                        <div className="flex justify-end pr-1">
-                            <motion.div
-                                key={timeLeft}
-                                initial={{ scale: 1.15, opacity: 0.6 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ duration: 0.3 }}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-bold font-mono tracking-widest shadow-lg ${timerColor.badge}`}
-                            >
-                                <Lucide.Timer className="w-4 h-4" />
-                                {formatTime(timeLeft)}
-                            </motion.div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden border border-white/5">
-                            <motion.div
-                                initial={{ width: "100%" }}
-                                animate={{ width: `${(timeLeft / timerPerQuestion) * 100}%` }}
-                                transition={{ duration: 1, ease: "linear" }}
-                                className={`h-full transition-colors duration-500 ${timerColor.bar}`}
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* Question */}
-                <AnimatePresence mode="wait">
-                    {currentQuestion && !submitted && (
-                        <motion.div
-                            key={currentIndex}
-                            initial={{ opacity: 0, x: 20, scale: 0.98 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, x: -20, scale: 0.98 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            className="glass-card p-6 md:p-10 relative overflow-hidden space-y-8 min-h-[500px] flex flex-col"
-                        >
-                            {/* Decorative glow */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent1/10 blur-[80px] rounded-full pointer-events-none"></div>
-
-                            <div className="flex justify-between items-start gap-4">
-                                <h2 className="text-2xl md:text-3xl font-bold leading-relaxed text-white">
-                                    {currentQuestion.question}
-                                </h2>
-                                <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
-                                    {currentQuestion.type === "mcq"
-                                        ? "Multiple Choice"
-                                        : currentQuestion.type === "tf"
-                                            ? "True / False"
-                                            : currentQuestion.type === "written"
-                                                ? "Written"
-                                                : "Code"}
-                                </div>
-                            </div>
-
-                            {/* OPTIONS */}
-                            <div className="flex-1">
-                                {currentQuestion.type === "mcq" ||
-                                    currentQuestion.type === "tf" ? (
-                                    <div className="grid grid-cols-1 gap-4">
-                                        {currentQuestion.options?.map((opt, j) => {
-                                            const selectedOption =
-                                                selected[currentIndex] === opt;
-
-                                            let style =
-                                                "border-white/10 hover:border-white/30 hover:bg-white-[0.02]";
-                                            let selectedStyle =
-                                                "text-brand-accent1 border-brand-accent1";
-
-                                            if (revealed) {
-                                                if (opt === currentQuestion.answer) {
-                                                    style =
-                                                        "border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]";
-                                                    selectedStyle =
-                                                        "text-emerald-400 border-emerald-400";
-                                                } else if (selectedOption && !isCorrect) {
-                                                    style =
-                                                        "border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]";
-                                                    selectedStyle =
-                                                        "text-rose-400 border-rose-400";
-                                                } else {
-                                                    style = "border-white/5 opacity-50";
-                                                }
-                                            } else if (selectedOption) {
-                                                style =
-                                                    "border-brand-accent1 bg-brand-accent1/10 shadow-[0_0_20px_rgba(99,102,241,0.1)] translate-x-2";
-                                            }
-
-                                            return (
-                                                <button
-                                                    key={j}
-                                                    disabled={revealed}
-                                                    onClick={() => {
-                                                        const copy = [...selected];
-                                                        copy[currentIndex] = opt;
-                                                        setSelected(copy);
-                                                    }}
-                                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-300 relative overflow-hidden group ${style}`}
-                                                >
-                                                    <span className="absolute inset-0 w-full h-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></span>
-                                                    <div className="flex items-center gap-4 relative z-10">
-                                                        <div
-                                                            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${selectedOption ||
-                                                                (revealed &&
-                                                                    opt === currentQuestion.answer)
-                                                                ? selectedStyle
-                                                                : "border-white/20 text-transparent"
-                                                                }`}
-                                                        >
-                                                            {(selectedOption ||
-                                                                (revealed &&
-                                                                    opt ===
-                                                                    currentQuestion.answer)) && (
-                                                                    <div className="w-3 h-3 bg-current rounded-full"></div>
-                                                                )}
-                                                        </div>
-                                                        <span className="text-lg font-medium tracking-wide">
-                                                            {opt}
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <textarea
-                                        disabled={revealed}
-                                        value={selected[currentIndex] || ""}
-                                        onChange={(e) => {
-                                            const copy = [...selected];
-                                            copy[currentIndex] = e.target.value;
-                                            setSelected(copy);
-                                        }}
-                                        className="w-full p-5 rounded-2xl bg-black/30 border border-white/10 min-h-[150px]"
-                                    />
-                                )}
-
-                                {/* Explanation */}
-                                <AnimatePresence>
-                                    {revealed && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: "auto" }}
-                                            className="overflow-hidden rounded-2xl border mt-6"
-                                            style={{
-                                                backgroundColor: isCorrect
-                                                    ? "rgba(16, 185, 129, 0.05)"
-                                                    : "rgba(244, 63, 94, 0.05)",
-                                                borderColor: isCorrect
-                                                    ? "rgba(16, 185, 129, 0.2)"
-                                                    : "rgba(244, 63, 94, 0.2)",
-                                            }}
-                                        >
-                                            <div className="p-6 space-y-4">
-                                                <div className="flex items-center gap-3">
-                                                    {isCorrect ? (
-                                                        <>
-                                                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                                                <Lucide.Check className="w-5 h-5" />
-                                                            </div>
-                                                            <h3 className="text-xl font-bold text-emerald-400">
-                                                                Excellent!
-                                                            </h3>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400">
-                                                                <Lucide.X className="w-5 h-5" />
-                                                            </div>
-                                                            <h3 className="text-xl font-bold text-rose-400">
-                                                                Not quite right
-                                                            </h3>
-                                                        </>
-                                                    )}
-                                                </div>
-
-                                                <div className="pl-11 space-y-4">
-                                                    {!isCorrect && (
-                                                        <div className="p-4 rounded-xl bg-black/40 border border-white/5">
-                                                            <p className="text-sm text-white/50 uppercase tracking-widest font-semibold mb-1">
-                                                                Correct Answer
-                                                            </p>
-                                                            <p className="text-lg text-white font-medium">
-                                                                {currentQuestion.answer}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    <p className="text-white/70">
-                                                        {typeof currentQuestion.explanation ===
-                                                            "object"
-                                                            ? currentQuestion.explanation.correct
-                                                            : currentQuestion.explanation ||
-                                                            "Great understanding."}
-                                                    </p>
-
-                                                    {typeof currentQuestion.explanation ===
-                                                        "object" &&
-                                                        !isCorrect &&
-                                                        currentQuestion.explanation.incorrect?.[
-                                                        selected[currentIndex]
-                                                        ] && (
-                                                            <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 mt-2">
-                                                                <p className="text-sm text-rose-400 uppercase tracking-widest font-semibold mb-1">
-                                                                    Why your answer was incorrect
-                                                                </p>
-                                                                <p className="text-white/80 leading-relaxed">
-                                                                    {
-                                                                        currentQuestion.explanation
-                                                                            .incorrect[
-                                                                        selected[currentIndex]
-                                                                        ]
-                                                                    }
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
-                                <button
-                                    onClick={handleRevealOrNext}
-                                    disabled={!selected[currentIndex]?.trim() && !revealed}
-                                    className="w-full relative group overflow-hidden rounded-2xl p-[2px] mt-8"
-                                >
-                                    <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow"></span>
-                                    <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
-                                        <span className="text-lg font-bold text-white group-hover:text-white transition-colors">
-                                            {!revealed
-                                                ? "Check Answer"
-                                                : currentIndex === questions.length - 1
-                                                    ? "Finish Quiz"
-                                                    : "Next Question"}
-                                        </span>
-                                        {revealed && (
-                                            <Lucide.ArrowRight className="w-5 h-5 text-white" />
-                                        )}
-                                    </div>
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
+                  )}
                 </AnimatePresence>
 
-                {/* RESULTS + FULL REVIEW */}
-                {submitted && result && (
-                    <div className="space-y-10 pt-10">
+                {/* ── Action button — disabled while guard is active ── */}
+                <button
+                  onClick={handleRevealOrNext}
+                  disabled={(!selected[currentIndex]?.trim() && !revealed)}
+                  className="w-full relative group overflow-hidden rounded-2xl p-[2px] mt-8 disabled:opacity-40"
+                >
+                  <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
+                  <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
+                    <span className="text-lg font-bold text-white">
+                      {!revealed ? "Check Answer"
+                        : currentIndex === questions.length - 1 ? "Finish Quiz"
+                        : "Next Question"}
+                    </span>
+                    {revealed && <Lucide.ArrowRight className="w-5 h-5 text-white" />}
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-                        {/* Header */}
-                        <div className="text-center space-y-4">
-                            <h2 className="text-4xl font-bold">🎉 Quiz Completed!</h2>
-                            <p className="text-3xl font-bold text-indigo-400">
-                                {result.score} / {result.total}
-                            </p>
-                            <p className="text-white/50">{result.percent}% Accuracy</p>
-                        </div>
-
-                        {/* FULL QUESTION REVIEW */}
-                        <div className="space-y-6">
-                            {questions.map((q, index) => {
-                                const userAnswer = selected[index];
-                                const correct =
-                                    userAnswer?.trim().toLowerCase() ===
-                                    q.answer.trim().toLowerCase();
-
-                                return (
-                                    <div
-                                        key={index}
-                                        className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4"
-                                    >
-                                        <p className="text-lg font-semibold">
-                                            {index + 1}. {q.question}
-                                        </p>
-
-                                        <div>
-                                            <p className="text-sm text-white/50">Your Answer:</p>
-                                            <p className={correct ? "text-emerald-400" : "text-rose-400"}>
-                                                {userAnswer || "No answer provided"}
-                                            </p>
-                                        </div>
-
-                                        {!correct && (
-                                            <div>
-                                                <p className="text-sm text-white/50">Correct Answer:</p>
-                                                <p className="text-emerald-400">{q.answer}</p>
-                                            </div>
-                                        )}
-
-                                        {q.explanation && (
-                                            <div className="pt-2 border-t border-white/10">
-                                                <p className="text-sm text-white/50 mb-1">
-                                                    Explanation:
-                                                </p>
-                                                {typeof q.explanation === "string" ? (
-                                                    <p className="text-white/70">{q.explanation}</p>
-                                                ) : (
-                                                    <>
-                                                        <p className="text-white/70">
-                                                            {q.explanation.correct}
-                                                        </p>
-                                                        {!correct &&
-                                                            q.explanation.incorrect?.[userAnswer] && (
-                                                                <p className="text-rose-300 mt-1">
-                                                                    {q.explanation.incorrect[userAnswer]}
-                                                                </p>
-                                                            )}
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <div className="pt-2">
-                                            {correct ? (
-                                                <span className="text-emerald-400 font-semibold">
-                                                    ✅ Correct
-                                                </span>
-                                            ) : (
-                                                <span className="text-rose-400 font-semibold">
-                                                    ❌ Incorrect
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Back Button */}
-                        <div className="text-center">
-                            <button
-                                onClick={() => router.push("/dashboard")}
-                                className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/10 transition"
-                            >
-                                Return to Dashboard
-                            </button>
-                        </div>
-                    </div>
-                )}
+        {/* Results */}
+        {submitted && result && (
+          <div className="space-y-10 pt-10">
+            <div className="text-center space-y-4">
+              <h2 className="text-4xl font-bold">🎉 Quiz Completed!</h2>
+              <p className="text-3xl font-bold text-indigo-400">{result.score} / {result.total}</p>
+              <p className="text-white/50">{result.percent}% Accuracy</p>
             </div>
-        </ProtectedRoute>
-    );
+
+            <div className="space-y-6">
+              {questions.map((q, index) => {
+                const userAnswer = selected[index];
+                const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                return (
+                  <div key={index} className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4">
+                    <p className="text-lg font-semibold">{index + 1}. {q.question}</p>
+                    <div>
+                      <p className="text-sm text-white/50">Your Answer:</p>
+                      <p className={correct ? "text-emerald-400" : "text-rose-400"}>{userAnswer || "No answer provided"}</p>
+                    </div>
+                    {!correct && (
+                      <div>
+                        <p className="text-sm text-white/50">Correct Answer:</p>
+                        <p className="text-emerald-400">{q.answer}</p>
+                      </div>
+                    )}
+                    {q.explanation && (
+                      <div className="pt-2 border-t border-white/10">
+                        <p className="text-sm text-white/50 mb-1">Explanation:</p>
+                        {typeof q.explanation === "string" ? (
+                          <p className="text-white/70">{q.explanation}</p>
+                        ) : (
+                          <>
+                            <p className="text-white/70">{q.explanation.correct}</p>
+                            {!correct && q.explanation.incorrect?.[userAnswer] && (
+                              <p className="text-rose-300 mt-1">{q.explanation.incorrect[userAnswer]}</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="pt-2">
+                      {correct
+                        ? <span className="text-emerald-400 font-semibold">✅ Correct</span>
+                        : <span className="text-rose-400 font-semibold">❌ Incorrect</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-center">
+              <button onClick={() => router.push("/dashboard")}
+                className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/10 transition">
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </ProtectedRoute>
+  );
 }

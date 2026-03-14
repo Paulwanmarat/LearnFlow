@@ -331,20 +331,70 @@ export default function Adaptive() {
 
                   <AnimatePresence>
                     {revealed && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                        className="overflow-hidden rounded-2xl border"
-                        style={{ backgroundColor: isCorrect ? "rgba(16,185,129,0.05)" : "rgba(244,63,94,0.05)", borderColor: isCorrect ? "rgba(16,185,129,0.2)" : "rgba(244,63,94,0.2)" }}>
-                        <div className="p-6 space-y-4">
-                          <div className="flex items-center gap-3">
-                            {isCorrect
-                              ? <><div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400"><Lucide.Check className="w-5 h-5" /></div><h3 className="text-xl font-bold text-emerald-400">Excellent!</h3></>
-                              : <><div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400"><Lucide.X className="w-5 h-5" /></div><h3 className="text-xl font-bold text-rose-400">Not quite right</h3></>}
+                      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+                        className="space-y-3">
+
+                        {/* Result header */}
+                        <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border ${isCorrect ? "bg-emerald-500/10 border-emerald-500/25" : "bg-rose-500/10 border-rose-500/25"}`}>
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                            {isCorrect ? <Lucide.Check className="w-5 h-5" /> : <Lucide.X className="w-5 h-5" />}
                           </div>
-                          <div className="pl-11 space-y-4">
-                            {!isCorrect && (<div className="p-4 rounded-xl bg-black/40 border border-white/5"><p className="text-sm text-white/50 uppercase tracking-widest font-semibold mb-1">Correct Answer</p><p className="text-lg text-white font-medium">{currentQuestion.answer}</p></div>)}
-                            <p className="text-white/70">
+                          <h3 className={`text-lg font-extrabold ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
+                            {isCorrect ? "Correct! Well done." : "Not quite right"}
+                          </h3>
+                        </div>
+
+                        {/* Correct answer box */}
+                        {!isCorrect && (
+                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/25 shadow-[0_0_16px_rgba(16,185,129,0.08)]">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Lucide.CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs text-emerald-500/70 uppercase tracking-widest font-bold mb-1">Correct Answer</p>
+                              <p className="text-base font-semibold text-emerald-300 leading-relaxed">{currentQuestion.answer}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Your answer box */}
+                        {!isCorrect && selected[currentIndex] && (
+                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-rose-500/8 border border-rose-500/25">
+                            <div className="w-7 h-7 rounded-lg bg-rose-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Lucide.XCircle className="w-4 h-4 text-rose-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs text-rose-500/70 uppercase tracking-widest font-bold mb-1">Your Answer</p>
+                              <p className="text-base font-semibold text-rose-300 leading-relaxed">{selected[currentIndex]}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Why incorrect (MCQ per-option) */}
+                        {!isCorrect && currentQuestion.explanation?.incorrect?.[selected[currentIndex]] && (
+                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                              <p className="text-sm text-white/80 leading-relaxed">
+                                {currentQuestion.explanation.incorrect[selected[currentIndex]]}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Explanation */}
+                        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                          <div className="w-7 h-7 rounded-lg bg-brand-accent1/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Lucide.BookOpen className="w-4 h-4 text-brand-accent1" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-brand-accent1/60 uppercase tracking-widest font-bold mb-1">Explanation</p>
+                            <p className="text-sm text-white/75 leading-relaxed">
                               {isCorrect ? (currentQuestion.explanation?.correct || "Excellent understanding.")
-                                         : (currentQuestion.explanation?.incorrect?.[selected[currentIndex]] || currentQuestion.explanation?.correct || "Review this concept carefully.")}
+                                         : (currentQuestion.explanation?.correct || "Review this concept carefully.")}
                             </p>
                           </div>
                         </div>
