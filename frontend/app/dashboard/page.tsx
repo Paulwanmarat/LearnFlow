@@ -73,6 +73,12 @@ function useCountUp(target: number, duration = 1200) {
 
 /* ─── Sub-components ────────────────────────────────────── */
 
+function formatHistoryDate(raw: string | Date): string {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function XpRing({ progress, level }: { progress: number; level: number }) {
   const r   = 54;
   const circ = 2 * Math.PI * r;
@@ -249,7 +255,10 @@ export default function Dashboard() {
   const xpToNext     = XP_PER_LEVEL - (data.xp % XP_PER_LEVEL);
   const league       = data.league ?? "Bronze";
   const lCfg         = LEAGUE_CONFIG[league] ?? LEAGUE_CONFIG.Bronze;
-  const recentHistory = data.history.slice(-10);
+  const recentHistory = data.history.slice(-10).map((h) => ({
+    ...h,
+    date: formatHistoryDate(h.date),
+  }));
 
   const avgScore = data.history.length
     ? Math.round(data.history.reduce((a, h) => a + h.percent, 0) / data.history.length)
@@ -470,6 +479,134 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+        </motion.div>
+
+        {/* ══════════════════════════════════════
+            ACTIVITY SUMMARY
+        ══════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.5 }}
+          className="glass-card p-6 sm:p-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <BarChart2 className="w-5 h-5 text-violet-400" />
+              <h2 className="text-xl font-bold text-white">Learning Activity</h2>
+            </div>
+            <span className="text-xs text-white/30 font-medium">Lessons vs Quizzes</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+            {/* Lessons vs Quizzes comparison bars */}
+            <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/5 space-y-5">
+              <p className="text-xs text-white/40 font-semibold uppercase tracking-widest">Total Activity</p>
+
+              {/* Lessons bar */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                    <span className="text-xs font-semibold text-white/60">Lessons Generated</span>
+                  </div>
+                  <span className="text-sm font-extrabold text-violet-400">{data.lessonsGenerated ?? 0}</span>
+                </div>
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${Math.min(((data.lessonsGenerated ?? 0) / Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1)) * 100, 100)}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className="h-full bg-gradient-to-r from-violet-500 to-purple-400 rounded-full"
+                  />
+                </div>
+              </div>
+
+              {/* Quizzes bar */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-white/60">Quizzes Taken</span>
+                  </div>
+                  <span className="text-sm font-extrabold text-emerald-400">{data.quizzesTaken ?? 0}</span>
+                </div>
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${Math.min(((data.quizzesTaken ?? 0) / Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1)) * 100, 100)}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1, ease: "easeOut", delay: 0.15 }}
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
+                  />
+                </div>
+              </div>
+
+              {/* Accuracy bar */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-3.5 h-3.5 text-pink-400" />
+                    <span className="text-xs font-semibold text-white/60">Overall Accuracy</span>
+                  </div>
+                  <span className="text-sm font-extrabold text-pink-400">{data.accuracy ?? 0}%</span>
+                </div>
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${data.accuracy ?? 0}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
+                    className="h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Score histogram — how many quizzes landed in each score band */}
+            <div className="bg-white/[0.03] rounded-2xl p-5 border border-white/5">
+              <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-4">Score Bands</p>
+              {data.history.length === 0 ? (
+                <div className="h-40 flex items-center justify-center text-white/20 text-sm">
+                  No quiz data yet
+                </div>
+              ) : (
+                <div className="h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        { band: "0–40",  count: data.history.filter(h => h.percent <= 40).length },
+                        { band: "41–60", count: data.history.filter(h => h.percent > 40 && h.percent <= 60).length },
+                        { band: "61–80", count: data.history.filter(h => h.percent > 60 && h.percent <= 80).length },
+                        { band: "81–100",count: data.history.filter(h => h.percent > 80).length },
+                      ]}
+                      margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%"   stopColor="#8b5cf6" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="band" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }} tickLine={false} />
+                      <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                        contentStyle={{ backgroundColor: "#0d1227", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px" }}
+                        itemStyle={{ color: "#fff" }}
+                        formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, "Count"]}
+                      />
+                      <Bar dataKey="count" fill="url(#bandGrad)" radius={[5, 5, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
         </motion.div>
 
         {/* ══════════════════════════════════════
