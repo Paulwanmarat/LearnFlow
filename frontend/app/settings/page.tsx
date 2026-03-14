@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Check, X, Upload, Link as LinkIcon, User, Globe, Lock, AlertTriangle } from "lucide-react";
+import { Camera, Check, X, Upload, Link as LinkIcon, User, Globe, Lock, AlertTriangle, AtSign } from "lucide-react";
 import Image from "next/image";
 import API from "../../utils/api";
 import { countries } from "../../utils/countries";
@@ -39,6 +39,13 @@ export default function SettingsPage() {
   const [urlInput, setUrlInput] = useState("");
   const [previewSrc, setPreviewSrc] = useState("");
 
+  /* ── Bio + Social links ── */
+  const [bio, setBio] = useState("");
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({
+    github: "", instagram: "", facebook: "", twitter: "",
+    youtube: "", twitch: "", discord: "", steam: "", roblox: "", epic: "",
+  });
+
   /* ── Password form ── */
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -65,6 +72,8 @@ export default function SettingsPage() {
         setCountry(u.country || "");
         setAvatarUrl(u.avatar || "");
         setPreviewSrc(u.avatar || "");
+        setBio(u.bio || "");
+        if (u.socialLinks) setSocialLinks((prev) => ({ ...prev, ...u.socialLinks }));
       })
       .catch(() => router.replace("/"))
       .finally(() => setLoading(false));
@@ -110,6 +119,8 @@ export default function SettingsPage() {
         username: username.trim(),
         country,
         avatar: avatarUrl,
+        bio,
+        socialLinks,
       });
       showToast("success", "Profile updated!");
       // Refresh user data
@@ -369,6 +380,69 @@ export default function SettingsPage() {
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    <div className="h-px bg-white/5" />
+
+                    {/* ── Bio ── */}
+                    <div className="space-y-5">
+                      <h2 className="text-lg font-semibold text-white">Bio</h2>
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="text-xs font-medium text-white/40">About you</label>
+                          <span className={`text-xs ${bio.length > 180 ? "text-red-400" : "text-white/20"}`}>
+                            {bio.length}/200
+                          </span>
+                        </div>
+                        <textarea
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm outline-none focus:border-cyan-500/50 placeholder:text-white/20 transition-all resize-none"
+                          placeholder="Tell the world a bit about yourself…"
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value.slice(0, 200))}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-white/5" />
+
+                    {/* ── Social Links ── */}
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg font-semibold text-white mb-0.5">Social & Gaming Links</h2>
+                        <p className="text-xs text-white/30">All optional — only filled ones appear on your profile.</p>
+                      </div>
+
+                      {/* Social platforms */}
+                      {[
+                        { key: "github",    label: "GitHub",       placeholder: "your-username",      emoji: "🐙" },
+                        { key: "instagram", label: "Instagram",    placeholder: "@handle",             emoji: "📸" },
+                        { key: "facebook",  label: "Facebook",     placeholder: "your-username",      emoji: "👍" },
+                        { key: "twitter",   label: "Twitter / X",  placeholder: "@handle",             emoji: "🐦" },
+                        { key: "youtube",   label: "YouTube",      placeholder: "@channel",            emoji: "▶️" },
+                        { key: "twitch",    label: "Twitch",       placeholder: "your-channel",       emoji: "🎮" },
+                        { key: "discord",   label: "Discord",      placeholder: "username#0000",       emoji: "💬" },
+                        { key: "steam",     label: "Steam",        placeholder: "your-profile-id",    emoji: "🎲" },
+                        { key: "roblox",    label: "Roblox",       placeholder: "YourUsername",       emoji: "🧱" },
+                        { key: "epic",      label: "Epic Games",   placeholder: "Your Epic ID",       emoji: "🕹️" },
+                      ].map(({ key, label, placeholder, emoji }) => (
+                        <div key={key}>
+                          <label className="flex items-center gap-1.5 text-xs font-medium text-white/40 mb-2">
+                            <span>{emoji}</span> {label}
+                          </label>
+                          <div className="relative">
+                            <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
+                            <input
+                              className="w-full pl-9 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm outline-none focus:border-cyan-500/50 placeholder:text-white/20 transition-all"
+                              placeholder={placeholder}
+                              value={socialLinks[key] || ""}
+                              onChange={(e) =>
+                                setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Save button */}

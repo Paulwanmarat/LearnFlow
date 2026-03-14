@@ -18,14 +18,15 @@ const connectDB = require("./config/db");
 const errorHandler = require("./middleware/errorHandler");
 const recalculateRanks = require("./services/rankService");
 
-const authRoutes = require("./routes/auth");
-const quizRoutes = require("./routes/quiz");
-const dashboardRoutes = require("./routes/dashboard");
+const authRoutes        = require("./routes/auth");
+const quizRoutes        = require("./routes/quiz");
+const dashboardRoutes   = require("./routes/dashboard");
 const leaderboardRoutes = require("./routes/leaderboard");
+const userRoutes        = require("./routes/user");       // ← new
 
 const User = require("./models/user");
 
-const app = express();
+const app    = express();
 const server = http.createServer(app);
 
 /* ===================================================== */
@@ -67,8 +68,7 @@ connectDB();
 app.set("trust proxy", 1);
 
 app.use(helmet({
-  // Relax CSP for Google OAuth redirect pages
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: false,   // allow Google OAuth redirect pages
 }));
 
 app.use(cors({
@@ -83,11 +83,7 @@ app.use(express.json({ limit: "10kb" }));
 /* 🛡 SECURITY MIDDLEWARE                                */
 /* ===================================================== */
 
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-}));
-
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
 app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
@@ -126,10 +122,11 @@ io.on("connection", (socket) => {
 app.use("/api/auth", authRoutes);
 // Google redirects to /auth/google/callback (no /api prefix) — must match
 // the Authorised redirect URI in Google Cloud Console exactly
-app.use("/auth", authRoutes);
-app.use("/api/quiz", quizRoutes);
-app.use("/api/dashboard", dashboardRoutes);
+app.use("/auth",            authRoutes);
+app.use("/api/quiz",        quizRoutes);
+app.use("/api/dashboard",   dashboardRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/users",       userRoutes);            // ← new: search + public profiles
 
 /* ===================================================== */
 /* ⏰ CRON JOBS                                          */
