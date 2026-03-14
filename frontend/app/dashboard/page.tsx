@@ -96,7 +96,7 @@ export default function Dashboard() {
         >
           <div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-1 sm:mb-3 leading-tight">
-              Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">{name || "Learner"}</span> 👑
+              Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent1 to-brand-accent2">{name || "Learner"}</span> !
             </h1>
             <p className="text-white/60 text-sm sm:text-lg">Here&apos;s your learning progress overview.</p>
           </div>
