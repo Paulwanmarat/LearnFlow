@@ -19,29 +19,45 @@ interface Question {
   };
 }
 
+// Returns all wrong-option entries, with a fallback for missing/generic text
+function getWrongEntries(
+  options: string[] | undefined,
+  answer: string,
+  incorrectMap: Record<string, string>
+): { opt: string; text: string }[] {
+  if (!options) return [];
+  return options
+    .filter(opt => opt !== answer)
+    .map(opt => {
+      const raw = incorrectMap[opt] ?? "";
+      const isGeneric = !raw || raw.toLowerCase().includes("does not correctly apply the concept");
+      return { opt, text: isGeneric ? "This option is not the correct answer for this question." : raw };
+    });
+}
+
 export default function Adaptive() {
   const router = useRouter();
 
-  const [topic,         setTopic]         = useState("");
+  const [topic, setTopic] = useState("");
   const [questionCount, setQuestionCount] = useState(5);
-  const [questions,     setQuestions]     = useState<Question[]>([]);
-  const [selected,      setSelected]      = useState<string[]>([]);
-  const [currentIndex,  setCurrentIndex]  = useState(0);
-  const [submitted,     setSubmitted]     = useState(false);
-  const [result,        setResult]        = useState<any>(null);
-  const [loading,       setLoading]       = useState(false);
-  const [revealed,      setRevealed]      = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [quizSessionId] = useState(() => crypto.randomUUID());
 
-  const submittingRef  = useRef(false);
+  const submittingRef = useRef(false);
   const actionGuardRef = useRef(false);
-  const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
+  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
   const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
-  const [timerHours,   setTimerHours]   = useState(0);
+  const [timerHours, setTimerHours] = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
-  const [timeLeft,     setTimeLeft]     = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const timerPerQuestion = timerHours * 3600 + timerMinutes * 60 + timerSeconds;
 
   const formatTime = (secs: number) => {
@@ -55,8 +71,8 @@ export default function Adaptive() {
     timeLeft !== null && timeLeft <= 10
       ? { badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse", bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" }
       : timeLeft !== null && timeLeft <= 30
-        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",          bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
-        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",  bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
+        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20", bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
+        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20", bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
 
   useEffect(() => {
     if (timerPerQuestion <= 0 || submitted || questions.length === 0) return;
@@ -94,12 +110,12 @@ export default function Adaptive() {
     submittingRef.current = true;
     try {
       const formatted = questions.map((q, i) => ({
-        question:      q.question,
-        type:          q.type,
+        question: q.question,
+        type: q.type,
         correctAnswer: q.answer,
-        userAnswer:    selected[i],
-        topic:         "Cognivra Adaptive Training",
-        difficulty:    q.difficulty || 2,
+        userAnswer: selected[i],
+        topic: "Cognivra Adaptive Training",
+        difficulty: q.difficulty || 2,
       }));
       const res = await API.post("/quiz/submit", { answers: formatted, quizSessionId });
       setResult(res.data);
@@ -118,9 +134,9 @@ export default function Adaptive() {
       if (q?.type === "written" || q?.type === "code") {
         try {
           const { data } = await API.post("/quiz/grade-written", {
-            question:      q.question,
+            question: q.question,
             correctAnswer: q.answer,
-            userAnswer:    selected[currentIndex],
+            userAnswer: selected[currentIndex],
           });
           setWrittenCorrect(data.correct);
           setWrittenExplanation(data.explanation ?? null);
@@ -153,8 +169,8 @@ export default function Adaptive() {
   const progress = questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
   const scorePercent = result ? result.percent : 0;
-  const scoreLabel  = scorePercent >= 90 ? "Outstanding!" : scorePercent >= 70 ? "Great Work!" : scorePercent >= 50 ? "Good Effort!" : "Keep Practicing!";
-  const scoreColor  = scorePercent >= 90 ? "text-emerald-400" : scorePercent >= 70 ? "text-brand-accent1" : scorePercent >= 50 ? "text-amber-400" : "text-rose-400";
+  const scoreLabel = scorePercent >= 90 ? "Outstanding!" : scorePercent >= 70 ? "Great Work!" : scorePercent >= 50 ? "Good Effort!" : "Keep Practicing!";
+  const scoreColor = scorePercent >= 90 ? "text-emerald-400" : scorePercent >= 70 ? "text-brand-accent1" : scorePercent >= 50 ? "text-amber-400" : "text-rose-400";
 
   const TimerDropdown = ({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (v: number) => void }) => (
     <div className="flex flex-col items-center gap-1.5">
@@ -233,7 +249,7 @@ export default function Adaptive() {
                     <span className="text-white/20 font-normal normal-case tracking-normal text-xs ml-1">(0 = no limit)</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <TimerDropdown label="HH" value={timerHours}   max={24} onChange={setTimerHours} />
+                    <TimerDropdown label="HH" value={timerHours} max={24} onChange={setTimerHours} />
                     <span className="text-white/30 font-bold text-2xl pb-1">:</span>
                     <TimerDropdown label="MM" value={timerMinutes} max={60} onChange={setTimerMinutes} />
                     <span className="text-white/30 font-bold text-2xl pb-1">:</span>
@@ -253,7 +269,7 @@ export default function Adaptive() {
                 <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
                 <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
                   {loading ? (<><Lucide.Loader2 className="w-5 h-5 animate-spin" /><span className="text-lg font-bold">Generating Questions...</span></>)
-                           : (<><Lucide.Sparkles className="w-5 h-5" /><span className="text-lg font-bold">Start Adaptive Practice</span></>)}
+                    : (<><Lucide.Sparkles className="w-5 h-5" /><span className="text-lg font-bold">Start Adaptive Practice</span></>)}
                 </div>
               </button>
             </motion.div>
@@ -367,7 +383,7 @@ export default function Adaptive() {
                           </h3>
                         </div>
 
-                        {/* Correct answer box */}
+                        {/* Correct answer */}
                         {!isCorrect && (
                           <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/25 shadow-[0_0_16px_rgba(16,185,129,0.08)]">
                             <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -380,7 +396,7 @@ export default function Adaptive() {
                           </div>
                         )}
 
-                        {/* Your answer box */}
+                        {/* Your answer */}
                         {!isCorrect && selected[currentIndex] && (
                           <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-rose-500/8 border border-rose-500/25">
                             <div className="w-7 h-7 rounded-lg bg-rose-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -393,7 +409,7 @@ export default function Adaptive() {
                           </div>
                         )}
 
-                        {/* Written/code: AI explanation */}
+                        {/* Written/code AI explanation */}
                         {!isCorrect && (currentQuestion.type === "written" || currentQuestion.type === "code") && writtenExplanation && (
                           <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
                             <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -406,14 +422,13 @@ export default function Adaptive() {
                           </div>
                         )}
 
-                        {/* MCQ/TF: Why ALL wrong options are wrong */}
+                        {/* MCQ/TF: Why ALL wrong options are wrong (always shown) */}
                         {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") && (() => {
-                          const incorrectMap = currentQuestion.explanation?.incorrect ?? {};
-                          const wrongOptions = currentQuestion.options?.filter(opt => opt !== currentQuestion.answer) ?? [];
-                          const entries = wrongOptions
-                            .map(opt => ({ opt, text: incorrectMap[opt] }))
-                            .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
-
+                          const entries = getWrongEntries(
+                            currentQuestion.options,
+                            currentQuestion.answer,
+                            currentQuestion.explanation?.incorrect ?? {}
+                          );
                           return entries.length > 0 ? (
                             <div className="rounded-2xl bg-amber-500/8 border border-amber-500/20 overflow-hidden">
                               <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/15">
@@ -450,7 +465,7 @@ export default function Adaptive() {
                             <p className="text-xs text-brand-accent1/60 uppercase tracking-widest font-bold mb-1">Explanation</p>
                             <p className="text-sm text-white/75 leading-relaxed">
                               {isCorrect ? (currentQuestion.explanation?.correct || "Excellent understanding.")
-                                         : (currentQuestion.explanation?.correct || "Review this concept carefully.")}
+                                : (currentQuestion.explanation?.correct || "Review this concept carefully.")}
                             </p>
                           </div>
                         </div>
@@ -516,6 +531,7 @@ export default function Adaptive() {
                 {questions.map((q, index) => {
                   const userAnswer = selected[index];
                   const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                  const wrongEntries = getWrongEntries(q.options, q.answer, q.explanation?.incorrect ?? {});
                   return (
                     <motion.div key={index} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
                       className={`p-6 rounded-2xl border space-y-4 ${correct ? "bg-emerald-500/5 border-emerald-500/15" : "bg-rose-500/5 border-rose-500/15"}`}>
@@ -533,31 +549,36 @@ export default function Adaptive() {
                           </div>
                           {!correct && (<div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5"><p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-1">Correct Answer</p><p className="font-medium text-emerald-400">{q.answer}</p></div>)}
                         </div>
-                        {q.explanation?.correct && <p className="text-white/60 text-sm leading-relaxed">{q.explanation.correct}</p>}
 
-                        {/* Why ALL wrong options are wrong in results review */}
-                        {(q.type === "mcq" || q.type === "tf") && (() => {
-                          const incorrectMap = q.explanation?.incorrect ?? {};
-                          const wrongOptions = q.options?.filter(opt => opt !== q.answer) ?? [];
-                          const entries = wrongOptions
-                            .map(opt => ({ opt, text: incorrectMap[opt] }))
-                            .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
-                          return entries.length > 0 ? (
-                            <div className="rounded-xl overflow-hidden border border-white/10">
-                              <p className="text-xs text-white/30 uppercase tracking-widest font-bold px-4 py-2 bg-white/5">Why each option is wrong</p>
-                              {entries.map(({ opt, text }) => (
-                                <div key={opt} className={`px-4 py-2.5 border-t border-white/5 ${opt === userAnswer ? "bg-rose-500/8" : ""}`}>
-                                  <p className={`text-xs font-bold mb-0.5 flex items-center gap-1.5 ${opt === userAnswer ? "text-rose-400" : "text-white/40"}`}>
-                                    {opt === userAnswer && <Lucide.ArrowRight className="w-3 h-3" />}
-                                    {opt}
-                                    {opt === userAnswer && <span className="text-rose-400/60 font-normal normal-case tracking-normal">(your choice)</span>}
-                                  </p>
-                                  <p className="text-sm text-white/60 leading-relaxed">{text}</p>
-                                </div>
-                              ))}
+                        {q.explanation?.correct && (
+                          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/8">
+                            <Lucide.BookOpen className="w-3.5 h-3.5 text-brand-accent1 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-white/65 leading-relaxed">{q.explanation.correct}</p>
+                          </div>
+                        )}
+
+                        {/* Why ALL wrong options are wrong */}
+                        {(q.type === "mcq" || q.type === "tf") && wrongEntries.length > 0 && (
+                          <div className="rounded-xl overflow-hidden border border-amber-500/15">
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/8 border-b border-amber-500/10">
+                              <Lucide.AlertCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold">Why each option is wrong</p>
                             </div>
-                          ) : null;
-                        })()}
+                            {wrongEntries.map(({ opt, text }) => {
+                              const isUserChoice = opt === userAnswer;
+                              return (
+                                <div key={opt} className={`px-4 py-3 border-t border-white/5 ${isUserChoice ? "bg-rose-500/8" : ""}`}>
+                                  <p className={`text-xs font-bold mb-1 flex items-center gap-1.5 ${isUserChoice ? "text-rose-400" : "text-white/40"}`}>
+                                    {isUserChoice && <Lucide.ArrowRight className="w-3 h-3" />}
+                                    {opt}
+                                    {isUserChoice && <span className="text-rose-400/60 font-normal normal-case tracking-normal ml-1">(your choice)</span>}
+                                  </p>
+                                  <p className="text-xs text-white/60 leading-relaxed">{text}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   );

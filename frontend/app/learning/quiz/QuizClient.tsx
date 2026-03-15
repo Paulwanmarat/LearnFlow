@@ -22,28 +22,44 @@ interface Question {
   difficulty?: number;
 }
 
+// Returns all wrong-option entries, with a fallback for missing/generic text
+function getWrongEntries(
+  options: string[] | undefined,
+  answer: string,
+  incorrectMap: Record<string, string>
+): { opt: string; text: string }[] {
+  if (!options) return [];
+  return options
+    .filter(opt => opt !== answer)
+    .map(opt => {
+      const raw = incorrectMap[opt] ?? "";
+      const isGeneric = !raw || raw.toLowerCase().includes("does not correctly apply the concept");
+      return { opt, text: isGeneric ? "This option is not the correct answer for this question." : raw };
+    });
+}
+
 export default function QuizClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const summary          = searchParams.get("summary") || "";
-  const topic            = searchParams.get("topic")   || "";
-  const count            = Number(searchParams.get("count") || 5);
+  const summary = searchParams.get("summary") || "";
+  const topic = searchParams.get("topic") || "";
+  const count = Number(searchParams.get("count") || 5);
   const timerPerQuestion = Number(searchParams.get("timer") || 0);
 
-  const [questions,        setQuestions]        = useState<Question[]>([]);
-  const [selected,         setSelected]         = useState<string[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string[]>([]);
-  const [currentIndex,     setCurrentIndex]     = useState(0);
-  const [submitted,        setSubmitted]        = useState(false);
-  const [result,           setResult]           = useState<any>(null);
-  const [timeLeft,         setTimeLeft]         = useState<number | null>(null);
-  const [revealed,         setRevealed]         = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const [quizSessionId] = useState(() => crypto.randomUUID());
 
-  const submittingRef  = useRef(false);
+  const submittingRef = useRef(false);
   const actionGuardRef = useRef(false);
-  const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
+  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
   const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
   const formatTime = (seconds: number) => {
@@ -85,7 +101,7 @@ export default function QuizClient() {
   const isCorrect = currentQuestion?.type === "written" || currentQuestion?.type === "code"
     ? (writtenCorrect ?? false)
     : selected[currentIndex]?.trim().toLowerCase() ===
-      currentQuestion?.answer?.trim().toLowerCase();
+    currentQuestion?.answer?.trim().toLowerCase();
   const progress =
     questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
@@ -98,9 +114,9 @@ export default function QuizClient() {
       if (q?.type === "written" || q?.type === "code") {
         try {
           const { data } = await API.post("/quiz/grade-written", {
-            question:      q.question,
+            question: q.question,
             correctAnswer: q.answer,
-            userAnswer:    selected[currentIndex],
+            userAnswer: selected[currentIndex],
           });
           setWrittenCorrect(data.correct);
           setWrittenExplanation(data.explanation ?? null);
@@ -133,13 +149,13 @@ export default function QuizClient() {
     submittingRef.current = true;
 
     const formatted = questions.map((q, i) => ({
-      question:      q.question,
-      type:          q.type,
+      question: q.question,
+      type: q.type,
       correctAnswer: q.answer,
-      userAnswer:    selected[i],
-      language:      q.type === "code" ? selectedLanguage[i] : undefined,
+      userAnswer: selected[i],
+      language: q.type === "code" ? selectedLanguage[i] : undefined,
       topic,
-      difficulty:    q.difficulty || 1,
+      difficulty: q.difficulty || 1,
     }));
 
     const res = await API.post("/quiz/submit", { answers: formatted, quizSessionId });
@@ -151,8 +167,8 @@ export default function QuizClient() {
     timeLeft !== null && timeLeft <= 10
       ? { badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse", bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" }
       : timeLeft !== null && timeLeft <= 30
-        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",          bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
-        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",  bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
+        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20", bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
+        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20", bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
 
   return (
     <ProtectedRoute>
@@ -175,7 +191,6 @@ export default function QuizClient() {
                 <p className="text-white/50 text-sm mt-1">Topic: <span className="text-white font-medium">{topic}</span></p>
               </div>
             </div>
-
             <div className="flex-1 w-full max-w-sm ml-auto">
               <div className="flex justify-between text-sm font-semibold mb-2 uppercase tracking-wide">
                 <span className="text-white/50">Progress</span>
@@ -228,7 +243,7 @@ export default function QuizClient() {
                 <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
                   {currentQuestion.type === "mcq" ? "Multiple Choice"
                     : currentQuestion.type === "tf" ? "True / False"
-                    : currentQuestion.type === "written" ? "Written" : "Code"}
+                      : currentQuestion.type === "written" ? "Written" : "Code"}
                 </div>
               </div>
 
@@ -286,34 +301,24 @@ export default function QuizClient() {
                     className="w-full p-5 rounded-2xl bg-black/30 border border-white/10 min-h-[150px]" />
                 )}
 
-                {/* Explanation */}
                 <AnimatePresence>
                   {revealed && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="mt-6 space-y-3"
-                    >
-                      {/* ── Result header ── */}
-                      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border ${
-                        isCorrect
-                          ? "bg-emerald-500/10 border-emerald-500/25"
-                          : "bg-rose-500/10 border-rose-500/25"
-                      }`}>
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }} className="mt-6 space-y-3">
+
+                      {/* Result header */}
+                      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border ${isCorrect ? "bg-emerald-500/10 border-emerald-500/25" : "bg-rose-500/10 border-rose-500/25"
                         }`}>
-                          {isCorrect
-                            ? <Lucide.Check className="w-5 h-5" />
-                            : <Lucide.X className="w-5 h-5" />}
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                          }`}>
+                          {isCorrect ? <Lucide.Check className="w-5 h-5" /> : <Lucide.X className="w-5 h-5" />}
                         </div>
                         <h3 className={`text-lg font-extrabold ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
                           {isCorrect ? "Correct! Well done." : "Not quite right"}
                         </h3>
                       </div>
 
-                      {/* ── Correct answer box ── */}
+                      {/* Correct answer */}
                       {!isCorrect && (
                         <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/25 shadow-[0_0_16px_rgba(16,185,129,0.08)]">
                           <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -326,7 +331,7 @@ export default function QuizClient() {
                         </div>
                       )}
 
-                      {/* ── Your answer box ── */}
+                      {/* Your answer */}
                       {!isCorrect && selected[currentIndex] && (
                         <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-rose-500/8 border border-rose-500/25">
                           <div className="w-7 h-7 rounded-lg bg-rose-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -339,7 +344,7 @@ export default function QuizClient() {
                         </div>
                       )}
 
-                      {/* ── Written/code: AI explanation for wrong answer ── */}
+                      {/* Written/code AI explanation */}
                       {!isCorrect && (currentQuestion.type === "written" || currentQuestion.type === "code") && writtenExplanation && (
                         <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
                           <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -352,16 +357,12 @@ export default function QuizClient() {
                         </div>
                       )}
 
-                      {/* ── MCQ/TF: Why ALL wrong options are wrong ── */}
+                      {/* MCQ/TF: Why ALL wrong options are wrong (always shown) */}
                       {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") && (() => {
                         const incorrectMap = typeof currentQuestion.explanation === "object"
                           ? (currentQuestion.explanation as Explanation).incorrect ?? {}
                           : {};
-                        const wrongOptions = currentQuestion.options?.filter(opt => opt !== currentQuestion.answer) ?? [];
-                        const entries = wrongOptions
-                          .map(opt => ({ opt, text: incorrectMap[opt] }))
-                          .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
-
+                        const entries = getWrongEntries(currentQuestion.options, currentQuestion.answer, incorrectMap);
                         return entries.length > 0 ? (
                           <div className="rounded-2xl bg-amber-500/8 border border-amber-500/20 overflow-hidden">
                             <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/15">
@@ -389,7 +390,7 @@ export default function QuizClient() {
                         ) : null;
                       })()}
 
-                      {/* ── Explanation / why correct is correct ── */}
+                      {/* Explanation — why correct is correct */}
                       <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/10">
                         <div className="w-7 h-7 rounded-lg bg-brand-accent1/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                           <Lucide.BookOpen className="w-4 h-4 text-brand-accent1" />
@@ -407,17 +408,15 @@ export default function QuizClient() {
                   )}
                 </AnimatePresence>
 
-                <button
-                  onClick={handleRevealOrNext}
+                <button onClick={handleRevealOrNext}
                   disabled={(!selected[currentIndex]?.trim() && !revealed)}
-                  className="w-full relative group overflow-hidden rounded-2xl p-[2px] mt-8 disabled:opacity-40"
-                >
+                  className="w-full relative group overflow-hidden rounded-2xl p-[2px] mt-8 disabled:opacity-40">
                   <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
                   <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
                     <span className="text-lg font-bold text-white">
                       {!revealed ? "Check Answer"
                         : currentIndex === questions.length - 1 ? "Finish Quiz"
-                        : "Next Question"}
+                          : "Next Question"}
                     </span>
                     {revealed && <Lucide.ArrowRight className="w-5 h-5 text-white" />}
                   </div>
@@ -430,76 +429,101 @@ export default function QuizClient() {
         {/* Results */}
         {submitted && result && (
           <div className="space-y-10 pt-10">
-            <div className="text-center space-y-4">
-              <h2 className="text-4xl font-bold">🎉 Quiz Completed!</h2>
-              <p className="text-3xl font-bold text-indigo-400">{result.score} / {result.total}</p>
-              <p className="text-white/50">{result.percent}% Accuracy</p>
+            <div className="glass-card p-8 sm:p-10 text-center relative overflow-hidden space-y-4">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-accent1/10 blur-[100px] rounded-full pointer-events-none" />
+              <div className="relative w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-brand-accent1 to-brand-accent2 flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.3)]">
+                <Lucide.Trophy className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-3xl font-extrabold text-white relative">Quiz Complete!</h2>
+              <p className="text-4xl font-black text-indigo-400 relative">{result.score} / {result.total}</p>
+              <p className="text-white/50 relative">{result.percent}% Accuracy</p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               {questions.map((q, index) => {
                 const userAnswer = selected[index];
                 const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                const incorrectMap = typeof q.explanation === "object"
+                  ? (q.explanation as Explanation).incorrect ?? {}
+                  : {};
+                const wrongEntries = getWrongEntries(q.options, q.answer, incorrectMap);
+
                 return (
-                  <div key={index} className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4">
-                    <p className="text-lg font-semibold">{index + 1}. {q.question}</p>
-                    <div>
-                      <p className="text-sm text-white/50">Your Answer:</p>
-                      <p className={correct ? "text-emerald-400" : "text-rose-400"}>{userAnswer || "No answer provided"}</p>
-                    </div>
-                    {!correct && (
-                      <div>
-                        <p className="text-sm text-white/50">Correct Answer:</p>
-                        <p className="text-emerald-400">{q.answer}</p>
+                  <motion.div key={index} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.04 }}
+                    className={`p-6 rounded-2xl border space-y-4 ${correct ? "bg-emerald-500/5 border-emerald-500/15" : "bg-rose-500/5 border-rose-500/15"}`}>
+
+                    {/* Question */}
+                    <div className="flex items-start gap-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${correct ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                        {correct ? <Lucide.Check className="w-4 h-4" /> : <Lucide.X className="w-4 h-4" />}
                       </div>
-                    )}
-                    {q.explanation && (
-                      <div className="pt-2 border-t border-white/10 space-y-2">
-                        <p className="text-sm text-white/50 mb-1">Explanation:</p>
-                        {typeof q.explanation === "string" ? (
-                          <p className="text-white/70">{q.explanation}</p>
-                        ) : (
-                          <>
-                            <p className="text-white/70">{(q.explanation as Explanation).correct}</p>
-                            {/* Show why ALL wrong options are wrong in results */}
-                            {(q.type === "mcq" || q.type === "tf") && (() => {
-                              const incorrectMap = (q.explanation as Explanation).incorrect ?? {};
-                              const wrongOptions = q.options?.filter(opt => opt !== q.answer) ?? [];
-                              const entries = wrongOptions
-                                .map(opt => ({ opt, text: incorrectMap[opt] }))
-                                .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
-                              return entries.length > 0 ? (
-                                <div className="mt-2 rounded-xl overflow-hidden border border-white/10">
-                                  <p className="text-xs text-white/30 uppercase tracking-widest font-bold px-4 py-2 bg-white/5">Why each option is wrong</p>
-                                  {entries.map(({ opt, text }) => (
-                                    <div key={opt} className={`px-4 py-2.5 border-t border-white/5 ${opt === userAnswer ? "bg-rose-500/8" : ""}`}>
-                                      <p className={`text-xs font-bold mb-0.5 ${opt === userAnswer ? "text-rose-400" : "text-white/40"}`}>
-                                        {opt}{opt === userAnswer ? " (your choice)" : ""}
-                                      </p>
-                                      <p className="text-sm text-white/60">{text}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null;
-                            })()}
-                          </>
+                      <p className="text-base font-semibold text-white leading-relaxed">{index + 1}. {q.question}</p>
+                    </div>
+
+                    <div className="pl-10 space-y-3">
+                      {/* Answer boxes */}
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5">
+                          <p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-1">Your Answer</p>
+                          <p className={`font-medium text-sm ${correct ? "text-emerald-400" : "text-rose-400"}`}>
+                            {userAnswer || "No answer provided"}
+                          </p>
+                        </div>
+                        {!correct && (
+                          <div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5">
+                            <p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-1">Correct Answer</p>
+                            <p className="font-medium text-sm text-emerald-400">{q.answer}</p>
+                          </div>
                         )}
                       </div>
-                    )}
-                    <div className="pt-2">
-                      {correct
-                        ? <span className="text-emerald-400 font-semibold">✅ Correct</span>
-                        : <span className="text-rose-400 font-semibold">❌ Incorrect</span>}
+
+                      {/* Why correct is correct */}
+                      {typeof q.explanation === "object" && (q.explanation as Explanation).correct && (
+                        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/8">
+                          <Lucide.BookOpen className="w-3.5 h-3.5 text-brand-accent1 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-white/65 leading-relaxed">{(q.explanation as Explanation).correct}</p>
+                        </div>
+                      )}
+                      {typeof q.explanation === "string" && q.explanation && (
+                        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/8">
+                          <Lucide.BookOpen className="w-3.5 h-3.5 text-brand-accent1 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-white/65 leading-relaxed">{q.explanation}</p>
+                        </div>
+                      )}
+
+                      {/* Why ALL wrong options are wrong */}
+                      {(q.type === "mcq" || q.type === "tf") && wrongEntries.length > 0 && (
+                        <div className="rounded-xl overflow-hidden border border-amber-500/15">
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/8 border-b border-amber-500/10">
+                            <Lucide.AlertCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                            <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold">Why each option is wrong</p>
+                          </div>
+                          {wrongEntries.map(({ opt, text }) => {
+                            const isUserChoice = opt === userAnswer;
+                            return (
+                              <div key={opt} className={`px-4 py-3 border-t border-white/5 ${isUserChoice ? "bg-rose-500/8" : ""}`}>
+                                <p className={`text-xs font-bold mb-1 flex items-center gap-1.5 ${isUserChoice ? "text-rose-400" : "text-white/40"}`}>
+                                  {isUserChoice && <Lucide.ArrowRight className="w-3 h-3" />}
+                                  {opt}
+                                  {isUserChoice && <span className="text-rose-400/60 font-normal normal-case tracking-normal ml-1">(your choice)</span>}
+                                </p>
+                                <p className="text-xs text-white/60 leading-relaxed">{text}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
 
             <div className="text-center">
               <button onClick={() => router.push("/dashboard")}
-                className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/10 transition">
-                Return to Dashboard
+                className="flex items-center gap-2.5 px-8 py-4 mx-auto rounded-2xl border border-white/20 hover:bg-white/10 text-white font-semibold transition">
+                <Lucide.LayoutDashboard className="w-4 h-4" /> Return to Dashboard
               </button>
             </div>
           </div>
