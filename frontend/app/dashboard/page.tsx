@@ -77,7 +77,10 @@ function useCountUp(target: number, duration = 1200) {
 function formatHistoryDate(raw: string | Date): string {
   const d = new Date(raw);
   if (isNaN(d.getTime())) return String(raw);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleString(undefined, {
+    month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 
 function XpRing({ progress, level }: { progress: number; level: number }) {

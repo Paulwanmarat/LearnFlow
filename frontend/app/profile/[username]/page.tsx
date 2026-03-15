@@ -40,6 +40,26 @@ const getFlag = (country?: string) => {
   return country.slice(0, 2).toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
 };
 
+// ── Full datetime: "Mar 15, 2026, 10:30 PM" ──
+function formatDateTime(raw: string | Date): string {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleString(undefined, {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+// ── Date only (for member since): "March 2026" ──
+function formatMemberSince(raw: string | Date): string {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleString(undefined, {
+    day: "numeric", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 flex flex-col items-center text-center gap-1">
@@ -103,9 +123,14 @@ export default function PublicProfilePage() {
     );
   }
 
-  const league   = user.league || "Bronze";
-  const lCfg     = LEAGUE_CONFIG[league] || LEAGUE_CONFIG.Bronze;
+  const league    = user.league || "Bronze";
+  const lCfg      = LEAGUE_CONFIG[league] || LEAGUE_CONFIG.Bronze;
   const hasSocial = user.socialLinks && Object.values(user.socialLinks).some((v: any) => v?.trim());
+
+  // ── FIXED: use != null so 0 still renders as "0%" ──
+  const displayAvgScore  = user.averageScore  != null ? `${user.averageScore}%`  : "—";
+  const displayAccuracy  = user.accuracy      != null ? `${user.accuracy}%`      : "—";
+  const accuracyBarWidth = user.accuracy      != null ? user.accuracy            : 0;
 
   return (
     <div className="min-h-screen bg-[#020617]">
@@ -178,7 +203,8 @@ export default function PublicProfilePage() {
           <StatCard label="Total XP"      value={user.xp?.toLocaleString() ?? 0} />
           <StatCard label="Day Streak"    value={user.streak ?? 0} sub="🔥" />
           <StatCard label="Quizzes Taken" value={user.quizzesTaken ?? 0} />
-          <StatCard label="Avg Score"     value={user.averageScore ? `${user.averageScore}%` : "—"} />
+          {/* FIXED: null-check instead of falsy check */}
+          <StatCard label="Avg Score"     value={displayAvgScore} />
         </motion.div>
 
         {/* ── Accuracy + Lessons ── */}
@@ -186,10 +212,11 @@ export default function PublicProfilePage() {
           className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <p className="text-xs text-white/40 font-medium mb-3">Accuracy</p>
-            <p className="text-2xl font-extrabold text-white mb-3">{user.accuracy ? `${user.accuracy}%` : "—"}</p>
+            {/* FIXED: null-check */}
+            <p className="text-2xl font-extrabold text-white mb-3">{displayAccuracy}</p>
             <div className="h-2 bg-white/5 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-700"
-                style={{ width: `${user.accuracy ?? 0}%` }} />
+                style={{ width: `${accuracyBarWidth}%` }} />
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
@@ -198,6 +225,34 @@ export default function PublicProfilePage() {
             <p className="text-xs text-white/20 mt-1">AI lessons created</p>
           </div>
         </motion.div>
+
+        {/* ── Recent Quiz History ── */}
+        {user.history?.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
+            className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-6">
+            <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              📋 Recent Quizzes
+              <span className="text-xs text-white/30 font-normal">(last {Math.min(user.history.length, 5)})</span>
+            </h2>
+            <div className="space-y-2">
+              {user.history.slice(0, 5).map((h: any, i: number) => (
+                <div key={i} className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div>
+                    <p className="text-xs text-white/30">{formatDateTime(h.date)}</p>
+                    <p className="text-sm font-semibold text-white mt-0.5">
+                      {h.score} / {h.total} correct
+                    </p>
+                  </div>
+                  <span className={`text-sm font-extrabold px-3 py-1 rounded-full border ${
+                    h.percent >= 80  ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                    : h.percent >= 50 ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                      : "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                  }`}>{h.percent}%</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Achievements ── */}
         {user.achievements?.length > 0 && (
@@ -217,8 +272,9 @@ export default function PublicProfilePage() {
           </motion.div>
         )}
 
+        {/* FIXED: Member since now shows full date + time */}
         <p className="text-center text-xs text-white/20 mt-8">
-          Member since {new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+          Member since {formatMemberSince(user.createdAt)}
         </p>
       </div>
     </div>
