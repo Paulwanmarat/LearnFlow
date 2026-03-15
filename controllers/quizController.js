@@ -63,8 +63,6 @@ Format:
     const result = await callAI(prompt);
     const lesson = safeParseJSON(result);
 
-    // ── Increment lessonsGenerated ──────────────────────────
-    // Fire-and-forget — don't block the lesson response on a DB write
     User.findByIdAndUpdate(req.user?._id ?? req.user?.id, { $inc: { lessonsGenerated: 1 } }).catch((err) =>
       console.error("Failed to increment lessonsGenerated:", err.message)
     );
@@ -237,9 +235,9 @@ exports.submitQuiz = async (req, res) => {
       })
     );
 
-    const score   = grading.reduce((a, b) => a + b, 0);
-    const total   = answers.length;
-    const percent = total ? Math.round((score / total) * 100) : 0;
+    const score    = grading.reduce((a, b) => a + b, 0);
+    const total    = answers.length;
+    const percent  = total ? Math.round((score / total) * 100) : 0;
     const earnedXP = percent >= 80 ? 20 : percent >= 50 ? 10 : 5;
 
     let newStreak = user.streak;
@@ -255,12 +253,20 @@ exports.submitQuiz = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       user._id,
       {
-        $push:  { history: { $each: [{ score, total, percent, date: today }], $position: 0 } },
-        $inc:   { xp: earnedXP, weeklyXp: earnedXP },
-        $set:   { streak: newStreak, lastQuizDate: today },
+        $push: { history: { $each: [{ score, total, percent, date: today }], $position: 0 } },
+        $inc:  { xp: earnedXP, weeklyXp: earnedXP, quizzesTaken: 1 },
+        $set:  { streak: newStreak, lastQuizDate: today },
       },
       { returnDocument: "after" }
     );
+
+    // ── FIXED: Recalculate averageScore and accuracy from full history ──
+    if (updatedUser.history?.length) {
+      const percents         = updatedUser.history.map(h => h.percent);
+      const avg              = Math.round(percents.reduce((a, b) => a + b, 0) / percents.length);
+      updatedUser.averageScore = avg;
+      updatedUser.accuracy     = avg;
+    }
 
     const newLevel = Math.floor(updatedUser.xp / 100) + 1;
     if (newLevel !== updatedUser.level) updatedUser.level = newLevel;
@@ -270,7 +276,15 @@ exports.submitQuiz = async (req, res) => {
 
     activeSubmissions.delete(userId);
 
-    res.json({ score, total, percent, xp: updatedUser.xp, level: updatedUser.level, streak: updatedUser.streak, earnedXP, achievements: updatedUser.achievements, detailedResults });
+    res.json({
+      score, total, percent,
+      xp:           updatedUser.xp,
+      level:        updatedUser.level,
+      streak:       updatedUser.streak,
+      earnedXP,
+      achievements: updatedUser.achievements,
+      detailedResults,
+    });
   } catch (err) {
     activeSubmissions.delete(userId);
     console.error("SUBMIT ERROR:", err.message);
@@ -394,10 +408,9 @@ exports.gradeWritten = async (req, res) => {
     if (!question || !correctAnswer || !userAnswer?.trim()) {
       return res.json({ correct: false, explanation: null });
     }
-    const score = await gradeWithAI(question, correctAnswer, userAnswer);
+    const score   = await gradeWithAI(question, correctAnswer, userAnswer);
     const correct = score === 1;
 
-    // Only generate a "why wrong" explanation when the answer is incorrect
     let explanation = null;
     if (!correct) {
       explanation = await gradeWrittenExplanation(question, correctAnswer, userAnswer);
@@ -414,7 +427,6 @@ exports.gradeWritten = async (req, res) => {
 /* 🔧 HELPERS                                            */
 /* ===================================================== */
 
-// Targeted "why your written answer is wrong" — concise, 1-2 sentences
 async function gradeWrittenExplanation(question, correctAnswer, userAnswer) {
   try {
     const prompt = `You are an educational tutor. In 1-2 sentences, explain clearly why the student's answer is incorrect and what the correct answer means.

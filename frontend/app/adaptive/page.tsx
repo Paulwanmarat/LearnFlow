@@ -34,9 +34,7 @@ export default function Adaptive() {
   const [quizSessionId] = useState(() => crypto.randomUUID());
 
   const submittingRef  = useRef(false);
-  // ── prevents double-click on Check Answer / Next ──
   const actionGuardRef = useRef(false);
-  // ── stores AI grading result for written questions ──
   const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
   const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
@@ -112,12 +110,10 @@ export default function Adaptive() {
   };
 
   const handleRevealOrNext = async () => {
-    // ── single-press guard: ignore rapid double-clicks ──
     if (actionGuardRef.current) return;
     actionGuardRef.current = true;
 
     if (!revealed) {
-      // Grade written/code questions via AI before showing result
       const q = questions[currentIndex];
       if (q?.type === "written" || q?.type === "code") {
         try {
@@ -135,17 +131,18 @@ export default function Adaptive() {
         }
       } else {
         setWrittenCorrect(null);
-      setWrittenExplanation(null);
+        setWrittenExplanation(null);
       }
       setRevealed(true);
       setTimeout(() => { actionGuardRef.current = false; }, 350);
     } else if (currentIndex < questions.length - 1) {
       setWrittenCorrect(null);
+      setWrittenExplanation(null);
       setCurrentIndex(currentIndex + 1);
       setRevealed(false);
       setTimeout(() => { actionGuardRef.current = false; }, 350);
     } else {
-      submitQuiz(); // submittingRef guards further calls
+      submitQuiz();
     }
   };
 
@@ -396,31 +393,49 @@ export default function Adaptive() {
                           </div>
                         )}
 
-                        {/* Why incorrect */}
-                        {!isCorrect && (() => {
-                          if (currentQuestion.type === "written" || currentQuestion.type === "code") {
-                            return writtenExplanation ? (
-                              <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-                                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        {/* Written/code: AI explanation */}
+                        {!isCorrect && (currentQuestion.type === "written" || currentQuestion.type === "code") && writtenExplanation && (
+                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                              <p className="text-sm text-white/80 leading-relaxed">{writtenExplanation}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* MCQ/TF: Why ALL wrong options are wrong */}
+                        {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") && (() => {
+                          const incorrectMap = currentQuestion.explanation?.incorrect ?? {};
+                          const wrongOptions = currentQuestion.options?.filter(opt => opt !== currentQuestion.answer) ?? [];
+                          const entries = wrongOptions
+                            .map(opt => ({ opt, text: incorrectMap[opt] }))
+                            .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
+
+                          return entries.length > 0 ? (
+                            <div className="rounded-2xl bg-amber-500/8 border border-amber-500/20 overflow-hidden">
+                              <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/15">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                                   <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
-                                  <p className="text-sm text-white/80 leading-relaxed">{writtenExplanation}</p>
-                                </div>
+                                <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold">Why each option is wrong</p>
                               </div>
-                            ) : null;
-                          }
-                          const perOpt = currentQuestion.explanation?.incorrect?.[selected[currentIndex]];
-                          const isGeneric = !perOpt || perOpt.toLowerCase().includes("does not correctly apply the concept");
-                          return !isGeneric ? (
-                            <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-                              <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
-                                <p className="text-sm text-white/80 leading-relaxed">{perOpt}</p>
+                              <div className="divide-y divide-white/5">
+                                {entries.map(({ opt, text }) => {
+                                  const isUserChoice = opt === selected[currentIndex];
+                                  return (
+                                    <div key={opt} className={`px-5 py-3.5 ${isUserChoice ? "bg-rose-500/8" : ""}`}>
+                                      <p className={`text-xs font-bold mb-1 flex items-center gap-1.5 ${isUserChoice ? "text-rose-400" : "text-white/40"}`}>
+                                        {isUserChoice && <Lucide.ArrowRight className="w-3 h-3" />}
+                                        {opt}
+                                        {isUserChoice && <span className="text-rose-400/60 font-normal normal-case tracking-normal">(your choice)</span>}
+                                      </p>
+                                      <p className="text-sm text-white/70 leading-relaxed">{text}</p>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           ) : null;
@@ -443,7 +458,6 @@ export default function Adaptive() {
                     )}
                   </AnimatePresence>
 
-                  {/* ── Action button — single press via actionGuardRef ── */}
                   <button onClick={handleRevealOrNext} disabled={!selected[currentIndex]?.trim() && !revealed}
                     className="w-full relative group overflow-hidden rounded-2xl p-[2px] disabled:opacity-40">
                     <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
@@ -520,7 +534,30 @@ export default function Adaptive() {
                           {!correct && (<div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5"><p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-1">Correct Answer</p><p className="font-medium text-emerald-400">{q.answer}</p></div>)}
                         </div>
                         {q.explanation?.correct && <p className="text-white/60 text-sm leading-relaxed">{q.explanation.correct}</p>}
-                        {!correct && q.explanation?.incorrect?.[userAnswer] && <p className="text-rose-300/80 text-sm leading-relaxed italic">{q.explanation.incorrect[userAnswer]}</p>}
+
+                        {/* Why ALL wrong options are wrong in results review */}
+                        {(q.type === "mcq" || q.type === "tf") && (() => {
+                          const incorrectMap = q.explanation?.incorrect ?? {};
+                          const wrongOptions = q.options?.filter(opt => opt !== q.answer) ?? [];
+                          const entries = wrongOptions
+                            .map(opt => ({ opt, text: incorrectMap[opt] }))
+                            .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
+                          return entries.length > 0 ? (
+                            <div className="rounded-xl overflow-hidden border border-white/10">
+                              <p className="text-xs text-white/30 uppercase tracking-widest font-bold px-4 py-2 bg-white/5">Why each option is wrong</p>
+                              {entries.map(({ opt, text }) => (
+                                <div key={opt} className={`px-4 py-2.5 border-t border-white/5 ${opt === userAnswer ? "bg-rose-500/8" : ""}`}>
+                                  <p className={`text-xs font-bold mb-0.5 flex items-center gap-1.5 ${opt === userAnswer ? "text-rose-400" : "text-white/40"}`}>
+                                    {opt === userAnswer && <Lucide.ArrowRight className="w-3 h-3" />}
+                                    {opt}
+                                    {opt === userAnswer && <span className="text-rose-400/60 font-normal normal-case tracking-normal">(your choice)</span>}
+                                  </p>
+                                  <p className="text-sm text-white/60 leading-relaxed">{text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     </motion.div>
                   );

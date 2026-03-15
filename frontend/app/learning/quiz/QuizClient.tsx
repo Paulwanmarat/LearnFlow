@@ -42,9 +42,7 @@ export default function QuizClient() {
   const [quizSessionId] = useState(() => crypto.randomUUID());
 
   const submittingRef  = useRef(false);
-  // ── prevents double-click on Check Answer / Next ──
   const actionGuardRef = useRef(false);
-  // ── stores AI grading result for written questions ──
   const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
   const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
@@ -55,7 +53,6 @@ export default function QuizClient() {
     return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
   };
 
-  /* ================= LOAD QUIZ ================= */
   useEffect(() => {
     const loadQuiz = async () => {
       const res = await API.post("/quiz/generate", { content: summary, count });
@@ -71,7 +68,6 @@ export default function QuizClient() {
     if (summary) loadQuiz();
   }, []);
 
-  /* ================= TIMER ================= */
   useEffect(() => {
     if (timerPerQuestion <= 0 || submitted) return;
     setTimeLeft(timerPerQuestion);
@@ -86,7 +82,6 @@ export default function QuizClient() {
   }, [currentIndex, revealed]);
 
   const currentQuestion = questions[currentIndex];
-  // For written questions: use AI grade result; for MCQ/TF: literal match
   const isCorrect = currentQuestion?.type === "written" || currentQuestion?.type === "code"
     ? (writtenCorrect ?? false)
     : selected[currentIndex]?.trim().toLowerCase() ===
@@ -94,14 +89,11 @@ export default function QuizClient() {
   const progress =
     questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
-  /* ================= HANDLE REVEAL / NEXT ================= */
   const handleRevealOrNext = async () => {
-    // ── click guard: ignore if already processing ──
     if (actionGuardRef.current) return;
     actionGuardRef.current = true;
 
     if (!revealed) {
-      // For written/code: call the AI grader before showing result
       const q = questions[currentIndex];
       if (q?.type === "written" || q?.type === "code") {
         try {
@@ -113,15 +105,13 @@ export default function QuizClient() {
           setWrittenCorrect(data.correct);
           setWrittenExplanation(data.explanation ?? null);
         } catch {
-          // fallback: literal comparison
           setWrittenCorrect(
             selected[currentIndex]?.trim().toLowerCase() === q.answer.trim().toLowerCase()
           );
         }
       } else {
         setWrittenCorrect(null);
-      setWrittenExplanation(null);
-      setWrittenExplanation(null);
+        setWrittenExplanation(null);
       }
       setRevealed(true);
       setTimeout(() => { actionGuardRef.current = false; }, 300);
@@ -157,7 +147,6 @@ export default function QuizClient() {
     setSubmitted(true);
   };
 
-  /* ================= TIMER COLORS ================= */
   const timerColor =
     timeLeft !== null && timeLeft <= 10
       ? { badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse", bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" }
@@ -324,7 +313,7 @@ export default function QuizClient() {
                         </h3>
                       </div>
 
-                      {/* ── Correct answer box (always shown when wrong) ── */}
+                      {/* ── Correct answer box ── */}
                       {!isCorrect && (
                         <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/25 shadow-[0_0_16px_rgba(16,185,129,0.08)]">
                           <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -337,7 +326,7 @@ export default function QuizClient() {
                         </div>
                       )}
 
-                      {/* ── Your answer box (shown when wrong) ── */}
+                      {/* ── Your answer box ── */}
                       {!isCorrect && selected[currentIndex] && (
                         <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-rose-500/8 border border-rose-500/25">
                           <div className="w-7 h-7 rounded-lg bg-rose-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -350,35 +339,51 @@ export default function QuizClient() {
                         </div>
                       )}
 
-                      {/* ── Why incorrect ── */}
-                      {!isCorrect && (() => {
-                        // Written/code: use AI-generated explanation
-                        if (currentQuestion.type === "written" || currentQuestion.type === "code") {
-                          return writtenExplanation ? (
-                            <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-                              <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {/* ── Written/code: AI explanation for wrong answer ── */}
+                      {!isCorrect && (currentQuestion.type === "written" || currentQuestion.type === "code") && writtenExplanation && (
+                        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
+                            <p className="text-sm text-white/80 leading-relaxed">{writtenExplanation}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── MCQ/TF: Why ALL wrong options are wrong ── */}
+                      {(currentQuestion.type === "mcq" || currentQuestion.type === "tf") && (() => {
+                        const incorrectMap = typeof currentQuestion.explanation === "object"
+                          ? (currentQuestion.explanation as Explanation).incorrect ?? {}
+                          : {};
+                        const wrongOptions = currentQuestion.options?.filter(opt => opt !== currentQuestion.answer) ?? [];
+                        const entries = wrongOptions
+                          .map(opt => ({ opt, text: incorrectMap[opt] }))
+                          .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
+
+                        return entries.length > 0 ? (
+                          <div className="rounded-2xl bg-amber-500/8 border border-amber-500/20 overflow-hidden">
+                            <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/15">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                                 <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
-                                <p className="text-sm text-white/80 leading-relaxed">{writtenExplanation}</p>
-                              </div>
+                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold">Why each option is wrong</p>
                             </div>
-                          ) : null;
-                        }
-                        // MCQ: only show if the per-option explanation is specific (not the fallback placeholder)
-                        const perOpt = typeof currentQuestion.explanation === "object"
-                          ? currentQuestion.explanation.incorrect?.[selected[currentIndex]]
-                          : null;
-                        const isGeneric = !perOpt || perOpt.toLowerCase().includes("does not correctly apply the concept");
-                        return !isGeneric ? (
-                          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Lucide.AlertCircle className="w-4 h-4 text-amber-400" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs text-amber-500/70 uppercase tracking-widest font-bold mb-1">Why your answer is incorrect</p>
-                              <p className="text-sm text-white/80 leading-relaxed">{perOpt}</p>
+                            <div className="divide-y divide-white/5">
+                              {entries.map(({ opt, text }) => {
+                                const isUserChoice = opt === selected[currentIndex];
+                                return (
+                                  <div key={opt} className={`px-5 py-3.5 ${isUserChoice ? "bg-rose-500/8" : ""}`}>
+                                    <p className={`text-xs font-bold mb-1 flex items-center gap-1.5 ${isUserChoice ? "text-rose-400" : "text-white/40"}`}>
+                                      {isUserChoice && <Lucide.ArrowRight className="w-3 h-3" />}
+                                      {opt}
+                                      {isUserChoice && <span className="text-rose-400/60 font-normal">(your choice)</span>}
+                                    </p>
+                                    <p className="text-sm text-white/70 leading-relaxed">{text}</p>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         ) : null;
@@ -393,7 +398,7 @@ export default function QuizClient() {
                           <p className="text-xs text-brand-accent1/60 uppercase tracking-widest font-bold mb-1">Explanation</p>
                           <p className="text-sm text-white/75 leading-relaxed">
                             {typeof currentQuestion.explanation === "object"
-                              ? currentQuestion.explanation.correct
+                              ? (currentQuestion.explanation as Explanation).correct
                               : currentQuestion.explanation || "Great understanding of this concept."}
                           </p>
                         </div>
@@ -402,7 +407,6 @@ export default function QuizClient() {
                   )}
                 </AnimatePresence>
 
-                {/* ── Action button — disabled while guard is active ── */}
                 <button
                   onClick={handleRevealOrNext}
                   disabled={(!selected[currentIndex]?.trim() && !revealed)}
@@ -450,16 +454,34 @@ export default function QuizClient() {
                       </div>
                     )}
                     {q.explanation && (
-                      <div className="pt-2 border-t border-white/10">
+                      <div className="pt-2 border-t border-white/10 space-y-2">
                         <p className="text-sm text-white/50 mb-1">Explanation:</p>
                         {typeof q.explanation === "string" ? (
                           <p className="text-white/70">{q.explanation}</p>
                         ) : (
                           <>
-                            <p className="text-white/70">{q.explanation.correct}</p>
-                            {!correct && q.explanation.incorrect?.[userAnswer] && (
-                              <p className="text-rose-300 mt-1">{q.explanation.incorrect[userAnswer]}</p>
-                            )}
+                            <p className="text-white/70">{(q.explanation as Explanation).correct}</p>
+                            {/* Show why ALL wrong options are wrong in results */}
+                            {(q.type === "mcq" || q.type === "tf") && (() => {
+                              const incorrectMap = (q.explanation as Explanation).incorrect ?? {};
+                              const wrongOptions = q.options?.filter(opt => opt !== q.answer) ?? [];
+                              const entries = wrongOptions
+                                .map(opt => ({ opt, text: incorrectMap[opt] }))
+                                .filter(({ text }) => text && !text.toLowerCase().includes("does not correctly apply the concept"));
+                              return entries.length > 0 ? (
+                                <div className="mt-2 rounded-xl overflow-hidden border border-white/10">
+                                  <p className="text-xs text-white/30 uppercase tracking-widest font-bold px-4 py-2 bg-white/5">Why each option is wrong</p>
+                                  {entries.map(({ opt, text }) => (
+                                    <div key={opt} className={`px-4 py-2.5 border-t border-white/5 ${opt === userAnswer ? "bg-rose-500/8" : ""}`}>
+                                      <p className={`text-xs font-bold mb-0.5 ${opt === userAnswer ? "text-rose-400" : "text-white/40"}`}>
+                                        {opt}{opt === userAnswer ? " (your choice)" : ""}
+                                      </p>
+                                      <p className="text-sm text-white/60">{text}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null;
+                            })()}
                           </>
                         )}
                       </div>
