@@ -95,10 +95,10 @@ Return ONLY valid JSON array.
 
 [
  {
-   "question": "string",
+   "question": "Write the actual question text here",
    "type": "mcq | tf | written | code",
    "options": [],
-   "answer": "string",
+   "answer": "the actual correct answer text here",
    "explanation": {
       "correct": "why correct answer is correct",
       "incorrect": {
@@ -112,6 +112,7 @@ STRICT RULES:
 - JSON only
 - No markdown
 - No extra text
+- NEVER use placeholder text like "string" as a value — always provide real content
 - For MCQ:
   - Exactly 4 meaningful options
   - ONLY ONE correct
@@ -120,6 +121,8 @@ STRICT RULES:
   - Must explain why EACH wrong option is wrong
 - For TF (True/False):
   - "answer" MUST be exactly "True" or "False" in English.
+- For written:
+  - "answer" must be the actual correct answer, not a placeholder
 `;
 
     let questions = [];
@@ -135,6 +138,10 @@ STRICT RULES:
 
       for (const q of parsed) {
         if (!q?.question || !q.answer) continue;
+        // ── FIXED: reject placeholder answers ──
+        if (q.answer.trim().toLowerCase() === "string") continue;
+        if (q.question.trim().toLowerCase() === "string") continue;
+        if (q.answer.trim().toLowerCase().includes("actual correct answer")) continue;
         if (questions.some(e => e.question.trim().toLowerCase() === q.question.trim().toLowerCase())) continue;
 
         if (q.type === "mcq") {
@@ -260,10 +267,10 @@ exports.submitQuiz = async (req, res) => {
       { returnDocument: "after" }
     );
 
-    // ── FIXED: Recalculate averageScore and accuracy from full history ──
+    // ── Recalculate averageScore and accuracy from full history ──
     if (updatedUser.history?.length) {
-      const percents         = updatedUser.history.map(h => h.percent);
-      const avg              = Math.round(percents.reduce((a, b) => a + b, 0) / percents.length);
+      const percents           = updatedUser.history.map(h => h.percent);
+      const avg                = Math.round(percents.reduce((a, b) => a + b, 0) / percents.length);
       updatedUser.averageScore = avg;
       updatedUser.accuracy     = avg;
     }
@@ -298,10 +305,11 @@ exports.submitQuiz = async (req, res) => {
 
 exports.generateWeakQuestions = async (req, res) => {
   try {
-    const { topic } = req.body;
+    const { topic, count } = req.body;
     if (!topic?.trim()) return res.status(400).json({ error: "Topic required" });
 
-    const QUESTION_COUNT = 5;
+    const QUESTION_COUNT = Math.min(Math.max(Number(count) || 5, 1), 20);
+
     const prompt = `
 You are a strict JSON generator.
 
@@ -313,10 +321,10 @@ Return ONLY valid JSON array.
 
 [
   {
-    "question": "string",
+    "question": "Write the actual question text here",
     "type": "mcq",
     "options": ["Full meaningful option text","Full meaningful option text","Full meaningful option text","Full meaningful option text"],
-    "answer": "must exactly match one option",
+    "answer": "must exactly match one of the options above",
     "explanation": {
       "correct": "Why correct is correct",
       "incorrect": { "wrongOptionText": "Why wrong" }
@@ -330,6 +338,8 @@ STRICT RULES:
 - No A/B/C/D as literal options
 - Exactly 4 meaningful options
 - Only ONE correct answer
+- NEVER use placeholder text like "string" as a value — always provide real content
+- "answer" must exactly match one of the 4 options
 `;
 
     let questions = [];
@@ -344,6 +354,11 @@ STRICT RULES:
 
       for (const q of parsed) {
         if (!q?.question || !q.answer || !Array.isArray(q.options)) continue;
+        // ── FIXED: reject placeholder answers ──
+        if (q.answer.trim().toLowerCase() === "string") continue;
+        if (q.question.trim().toLowerCase() === "string") continue;
+        if (q.answer.trim().toLowerCase().includes("must exactly match")) continue;
+
         q.options = [...new Set(q.options)];
         if (q.options.every(o => ["a","b","c","d"].includes(o.trim().toLowerCase()))) continue;
         if (!q.options.includes(q.answer)) q.options.unshift(q.answer);

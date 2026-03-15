@@ -601,7 +601,7 @@ export default function Dashboard() {
                 {
                   src:    "/2.png",
                   name:   "Sher Youprayong",
-                  role:   "UI / UX Designer",
+                  role:   "Researcher",
                   accent: "from-violet-500/20 to-violet-500/5",
                   ring:   "ring-violet-500/30",
                   tag:    "bg-violet-500/10 border-violet-500/20 text-violet-300",
@@ -609,7 +609,7 @@ export default function Dashboard() {
                 {
                   src:    "/3.png",
                   name:   "Panathorn Limthongkun",
-                  role:   "AI & Backend Engineer",
+                  role:   "Researcher",
                   accent: "from-emerald-500/20 to-emerald-500/5",
                   ring:   "ring-emerald-500/30",
                   tag:    "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
