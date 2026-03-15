@@ -16,10 +16,11 @@ import {
 import {
   Zap, Flame, Target, TrendingUp, BookOpen, Trophy,
   Star, ChevronRight, Play, Users, Brain, Sparkles,
-  ArrowUpRight, Award, Clock, BarChart2,
+  ArrowUpRight, Award, Clock, BarChart2, LineChart,
+  Cpu, Layers, GraduationCap, School, User,
 } from "lucide-react";
 
-/* ─── Types ─────────────────────────────────────────────── */
+
 
 interface HistoryEntry {
   date:    string;
@@ -43,7 +44,7 @@ interface DashboardData {
   history:          HistoryEntry[];
 }
 
-/* ─── Helpers ───────────────────────────────────────────── */
+
 
 const XP_PER_LEVEL = 100;
 
@@ -72,7 +73,7 @@ function useCountUp(target: number, duration = 1200) {
   return val;
 }
 
-/* ─── Sub-components ────────────────────────────────────── */
+
 
 function formatHistoryDate(raw: string | Date): string {
   const d = new Date(raw);
@@ -84,7 +85,7 @@ function formatHistoryDate(raw: string | Date): string {
 }
 
 function XpRing({ progress, level }: { progress: number; level: number }) {
-  const r   = 54;
+  const r    = 54;
   const circ = 2 * Math.PI * r;
   const dash = circ * (progress / 100);
 
@@ -180,7 +181,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-/* ─── Avatar ────────────────────────────────────────────── */
+
 function UserAvatar({ src, name, size = "lg" }: { src?: string; name: string; size?: "md" | "lg" | "xl" }) {
   const [err, setErr] = useState(false);
   const dims: Record<string, string> = {
@@ -202,10 +203,6 @@ function UserAvatar({ src, name, size = "lg" }: { src?: string; name: string; si
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD PAGE
-═══════════════════════════════════════════════════════════ */
-
 export default function Dashboard() {
   const router = useRouter();
 
@@ -218,24 +215,24 @@ export default function Dashboard() {
       .then((res) => {
         const d = res.data?.user ?? res.data;
         setData({
-          username:         d.username       ?? "",
+          username:         d.username         ?? "",
           avatar:           d.avatar,
-          xp:               d.xp             ?? 0,
-          level:            d.level          ?? 1,
-          streak:           d.streak         ?? 0,
-          league:           d.league         ?? "Bronze",
-          quizzesTaken:     d.quizzesTaken   ?? 0,
+          xp:               d.xp               ?? 0,
+          level:            d.level            ?? 1,
+          streak:           d.streak           ?? 0,
+          league:           d.league           ?? "Bronze",
+          quizzesTaken:     d.quizzesTaken     ?? 0,
           lessonsGenerated: d.lessonsGenerated ?? 0,
-          averageScore:     d.averageScore   ?? 0,
-          accuracy:         d.accuracy       ?? 0,
-          history:          d.history        ?? [],
+          averageScore:     d.averageScore     ?? 0,
+          accuracy:         d.accuracy         ?? 0,
+          history:          d.history          ?? [],
         });
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const displayXp    = useCountUp(data?.xp ?? 0);
+  const displayXp     = useCountUp(data?.xp ?? 0);
   const displayStreak = useCountUp(data?.streak ?? 0, 800);
 
   if (loading) {
@@ -252,10 +249,10 @@ export default function Dashboard() {
 
   if (!data) return null;
 
-  const progress     = ((data.xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
-  const xpToNext     = XP_PER_LEVEL - (data.xp % XP_PER_LEVEL);
-  const league       = data.league ?? "Bronze";
-  const lCfg         = LEAGUE_CONFIG[league] ?? LEAGUE_CONFIG.Bronze;
+  const progress      = ((data.xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const xpToNext      = XP_PER_LEVEL - (data.xp % XP_PER_LEVEL);
+  const league        = data.league ?? "Bronze";
+  const lCfg          = LEAGUE_CONFIG[league] ?? LEAGUE_CONFIG.Bronze;
   const recentHistory = data.history.slice(-10).map((h) => ({
     ...h,
     date: formatHistoryDate(h.date),
@@ -270,7 +267,7 @@ export default function Dashboard() {
       {levelUp && <Confetti recycle={false} numberOfPieces={300} />}
       <Navbar />
 
-      {/* Ambient background glows */}
+      {}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/8 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/3 right-0 w-[500px] h-[400px] bg-cyan-600/6 blur-[120px] rounded-full" />
@@ -278,17 +275,8 @@ export default function Dashboard() {
 
       <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto space-y-6 relative z-10">
 
-        {/* ══════════════════════════════════════
-            HERO — avatar + greeting + quick stats
-        ══════════════════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-6 sm:p-8"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-
-            {/* Avatar */}
             <div className="relative">
               <UserAvatar src={data.avatar} name={data.username} size="xl" />
               {data.streak > 0 && (
@@ -299,7 +287,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Name + league + XP ring */}
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-3 mb-2">
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-white leading-tight">
@@ -309,22 +296,17 @@ export default function Dashboard() {
                   </span>
                 </h1>
               </div>
-
-              {/* League badge */}
               <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/5 border border-white/10 ${lCfg.color} ${lCfg.glow} mb-4`}>
                 {lCfg.emoji} {league} League
               </span>
-
-              {/* Quick stats row */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatPill icon={<Zap className="w-4 h-4" />}    label="Total XP"   value={displayXp.toLocaleString()} color="bg-indigo-500/20 text-indigo-400"  delay={0.1} />
-                <StatPill icon={<Flame className="w-4 h-4" />}   label="Day Streak" value={`${displayStreak} days`}     color="bg-orange-500/20 text-orange-400"  delay={0.15} />
-                <StatPill icon={<Target className="w-4 h-4" />}  label="Avg Score"  value={`${avgScore}%`}             color="bg-pink-500/20 text-pink-400"      delay={0.2} />
-                <StatPill icon={<BookOpen className="w-4 h-4" />} label="Quizzes"  value={data.quizzesTaken ?? 0}      color="bg-emerald-500/20 text-emerald-400" delay={0.25} />
+                <StatPill icon={<Zap       className="w-4 h-4" />} label="Total XP"   value={displayXp.toLocaleString()} color="bg-indigo-500/20 text-indigo-400"  delay={0.1}  />
+                <StatPill icon={<Flame     className="w-4 h-4" />} label="Day Streak" value={`${displayStreak} days`}     color="bg-orange-500/20 text-orange-400"  delay={0.15} />
+                <StatPill icon={<Target    className="w-4 h-4" />} label="Avg Score"  value={`${avgScore}%`}             color="bg-pink-500/20 text-pink-400"      delay={0.2}  />
+                <StatPill icon={<BookOpen  className="w-4 h-4" />} label="Quizzes"    value={data.quizzesTaken ?? 0}      color="bg-emerald-500/20 text-emerald-400" delay={0.25} />
               </div>
             </div>
 
-            {/* XP Ring */}
             <div className="flex flex-col items-center gap-2 flex-shrink-0">
               <XpRing progress={progress} level={data.level} />
               <p className="text-xs text-white/30 text-center">
@@ -334,61 +316,23 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* ══════════════════════════════════════
-            ACTION CARDS
-        ══════════════════════════════════════ */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <ActionCard
-            icon={<Brain className="w-6 h-6 text-cyan-400" />}
-            title="Start Learning"
-            desc="Generate AI-powered lessons on any topic. Adaptive difficulty adjusts as you improve."
-            cta="Go to Learning Lab"
-            onClick={() => router.push("/learning")}
-            gradient="bg-gradient-to-br from-cyan-600/10 to-indigo-600/10"
-            delay={0.1}
-          />
-          <ActionCard
-            icon={<Play className="w-6 h-6 text-violet-400" />}
-            title="Adaptive Mode"
-            desc="Let the AI challenge you with personalized questions based on your weak spots."
-            cta="Start Adaptive Quiz"
-            onClick={() => router.push("/adaptive")}
-            gradient="bg-gradient-to-br from-violet-600/10 to-pink-600/10"
-            delay={0.15}
-          />
-          <ActionCard
-            icon={<Trophy className="w-6 h-6 text-yellow-400" />}
-            title="Leaderboard"
-            desc="See where you rank globally and compete against top learners this week."
-            cta="View Rankings"
-            onClick={() => router.push("/leaderboard")}
-            gradient="bg-gradient-to-br from-yellow-600/10 to-amber-600/10"
-            delay={0.2}
-          />
+          <ActionCard icon={<Brain  className="w-6 h-6 text-cyan-400"   />} title="Start Learning"  desc="Generate AI-powered lessons on any topic. Adaptive difficulty adjusts as you improve." cta="Go to Learning Lab"   onClick={() => router.push("/learning")}    gradient="bg-gradient-to-br from-cyan-600/10 to-indigo-600/10"   delay={0.1}  />
+          <ActionCard icon={<Play   className="w-6 h-6 text-violet-400" />} title="Adaptive Mode"   desc="Let the AI challenge you with personalized questions based on your weak spots."        cta="Start Adaptive Quiz" onClick={() => router.push("/adaptive")}    gradient="bg-gradient-to-br from-violet-600/10 to-pink-600/10"   delay={0.15} />
+          <ActionCard icon={<Trophy className="w-6 h-6 text-yellow-400" />} title="Leaderboard"     desc="See where you rank globally and compete against top learners this week."               cta="View Rankings"       onClick={() => router.push("/leaderboard")} gradient="bg-gradient-to-br from-yellow-600/10 to-amber-600/10"  delay={0.2}  />
         </div>
 
-        {/* ══════════════════════════════════════
-            PERFORMANCE STATS ROW
-        ══════════════════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { icon: <BarChart2 className="w-5 h-5" />, label: "Accuracy",  value: `${data.accuracy ?? 0}%`,          color: "from-cyan-500/20 to-cyan-500/5",    accent: "text-cyan-400",   border: "border-cyan-500/10" },
-            { icon: <Sparkles  className="w-5 h-5" />, label: "Lessons",   value: data.lessonsGenerated ?? 0,         color: "from-violet-500/20 to-violet-500/5", accent: "text-violet-400", border: "border-violet-500/10" },
+            { icon: <BarChart2 className="w-5 h-5" />, label: "Accuracy",   value: `${data.accuracy ?? 0}%`,           color: "from-cyan-500/20 to-cyan-500/5",     accent: "text-cyan-400",   border: "border-cyan-500/10"   },
+            { icon: <Sparkles  className="w-5 h-5" />, label: "Lessons",    value: data.lessonsGenerated ?? 0,          color: "from-violet-500/20 to-violet-500/5", accent: "text-violet-400", border: "border-violet-500/10" },
             { icon: <Award     className="w-5 h-5" />, label: "Best Score", value: data.history.length ? `${Math.max(...data.history.map(h => h.percent))}%` : "—", color: "from-yellow-500/20 to-yellow-500/5", accent: "text-yellow-400", border: "border-yellow-500/10" },
             { icon: <Clock     className="w-5 h-5" />, label: "This Level", value: `${data.xp % XP_PER_LEVEL}/${XP_PER_LEVEL} XP`, color: "from-emerald-500/20 to-emerald-500/5", accent: "text-emerald-400", border: "border-emerald-500/10" },
           ].map(({ icon, label, value, color, accent, border }, i) => (
-            <motion.div
-              key={label}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
+            <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * i + 0.3 }}
-              className={`glass-card p-5 bg-gradient-to-b ${color} border ${border}`}
-            >
+              className={`glass-card p-5 bg-gradient-to-b ${color} border ${border}`}>
               <div className={`${accent} mb-3`}>{icon}</div>
               <p className="text-2xl font-extrabold text-white mb-1">{value}</p>
               <p className="text-xs text-white/40 font-medium uppercase tracking-wider">{label}</p>
@@ -396,19 +340,10 @@ export default function Dashboard() {
           ))}
         </motion.div>
 
-        {/* ══════════════════════════════════════
-            ANALYTICS + ACTIVITY (merged, no wasted space)
-        ══════════════════════════════════════ */}
         <div className="space-y-4">
-
-          {/* ── Row 1: Score Trend + Score Distribution (only if data exists) ── */}
           {data.history.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="glass-card p-6"
-            >
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+              className="glass-card p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-cyan-400" />
@@ -416,9 +351,7 @@ export default function Dashboard() {
                 </div>
                 <span className="text-xs text-white/30">Last {Math.min(data.history.length, 10)} quizzes</span>
               </div>
-
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Area — score trend */}
                 <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                   <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Score Trend</p>
                   <div className="h-44">
@@ -427,23 +360,20 @@ export default function Dashboard() {
                         <defs>
                           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0}   />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                         <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} dy={6} />
                         <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} domain={[0, 100]} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2.5}
-                          fill="url(#areaGrad)"
+                        <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2.5} fill="url(#areaGrad)"
                           dot={{ fill: "#0f172a", stroke: "#6366f1", strokeWidth: 2, r: 3 }}
                           activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-
-                {/* Bar — per-quiz scores */}
                 <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                   <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Per-Quiz Scores</p>
                   <div className="h-44">
@@ -451,7 +381,7 @@ export default function Dashboard() {
                       <BarChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                         <defs>
                           <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%"   stopColor="#a855f7" stopOpacity={1} />
+                            <stop offset="0%"   stopColor="#a855f7" stopOpacity={1}   />
                             <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
                           </linearGradient>
                         </defs>
@@ -468,52 +398,35 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {/* ── Row 2: Learning Activity (always visible) ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="glass-card p-6"
-          >
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+            className="glass-card p-6">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-violet-400" />
                 <h2 className="text-base font-bold text-white">Learning Activity</h2>
               </div>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-              {/* Activity bars */}
               <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5 space-y-4">
                 <p className="text-xs text-white/40 font-semibold uppercase tracking-widest">Progress Bars</p>
-
                 {[
-                  { label: "Lessons Generated", value: data.lessonsGenerated ?? 0, max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-violet-500 to-purple-400", accent: "text-violet-400", icon: <Sparkles className="w-3 h-3" /> },
-                  { label: "Quizzes Taken",     value: data.quizzesTaken   ?? 0, max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-emerald-500 to-teal-400",  accent: "text-emerald-400", icon: <BookOpen className="w-3 h-3" /> },
-                  { label: "Accuracy",          value: data.accuracy       ?? 0, max: 100,                                                                  color: "from-pink-500 to-rose-400",    accent: "text-pink-400",    icon: <Target className="w-3 h-3" />,  suffix: "%" },
+                  { label: "Lessons Generated", value: data.lessonsGenerated ?? 0, max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-violet-500 to-purple-400", accent: "text-violet-400",  icon: <Sparkles className="w-3 h-3" /> },
+                  { label: "Quizzes Taken",     value: data.quizzesTaken   ?? 0,   max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-emerald-500 to-teal-400",  accent: "text-emerald-400", icon: <BookOpen className="w-3 h-3" /> },
+                  { label: "Accuracy",          value: data.accuracy       ?? 0,   max: 100, color: "from-pink-500 to-rose-400", accent: "text-pink-400", icon: <Target className="w-3 h-3" />, suffix: "%" },
                 ].map(({ label, value, max, color, accent, icon, suffix = "" }) => (
                   <div key={label}>
                     <div className="flex justify-between items-center mb-1.5">
-                      <div className={`flex items-center gap-1.5 ${accent} text-xs font-medium`}>
-                        {icon} {label}
-                      </div>
+                      <div className={`flex items-center gap-1.5 ${accent} text-xs font-medium`}>{icon} {label}</div>
                       <span className={`text-xs font-extrabold ${accent}`}>{value}{suffix}</span>
                     </div>
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${Math.min((value / max) * 100, 100)}%` }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-full bg-gradient-to-r ${color} rounded-full`}
-                      />
+                      <motion.div initial={{ width: 0 }} whileInView={{ width: `${Math.min((value / max) * 100, 100)}%` }}
+                        viewport={{ once: true }} transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full bg-gradient-to-r ${color} rounded-full`} />
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Score bands histogram */}
               <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                 <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Score Bands</p>
                 {data.history.length === 0 ? (
@@ -521,24 +434,19 @@ export default function Dashboard() {
                 ) : (
                   <div className="h-36">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[
-                          { band: "0–40",   count: data.history.filter(h => h.percent <= 40).length,                            fill: "#ef4444" },
-                          { band: "41–60",  count: data.history.filter(h => h.percent > 40  && h.percent <= 60).length,         fill: "#f97316" },
-                          { band: "61–80",  count: data.history.filter(h => h.percent > 60  && h.percent <= 80).length,         fill: "#eab308" },
-                          { band: "81–100", count: data.history.filter(h => h.percent > 80).length,                             fill: "#22c55e" },
-                        ]}
-                        margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
-                      >
+                      <BarChart data={[
+                        { band: "0–40",   count: data.history.filter(h => h.percent <= 40).length },
+                        { band: "41–60",  count: data.history.filter(h => h.percent > 40  && h.percent <= 60).length },
+                        { band: "61–80",  count: data.history.filter(h => h.percent > 60  && h.percent <= 80).length },
+                        { band: "81–100", count: data.history.filter(h => h.percent > 80).length },
+                      ]} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                         <XAxis dataKey="band" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }} tickLine={false} />
                         <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} allowDecimals={false} />
-                        <Tooltip
-                          cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                        <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }}
                           contentStyle={{ backgroundColor: "#0d1227", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px" }}
                           itemStyle={{ color: "#fff" }}
-                          formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, ""]}
-                        />
+                          formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, ""]} />
                         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                           {["#ef4444","#f97316","#eab308","#22c55e"].map((color, i) => (
                             <Cell key={i} fill={color} fillOpacity={0.85} />
@@ -549,22 +457,17 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-
-              {/* Radar — skill profile */}
               <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                 <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Skill Profile</p>
                 <div className="h-36">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart
-                      data={[
-                        { skill: "Accuracy",  value: Math.min(data.accuracy ?? 0, 100) },
-                        { skill: "Streak",    value: Math.min((data.streak ?? 0) * 10, 100) },
-                        { skill: "Avg Score", value: Math.min(avgScore, 100) },
-                        { skill: "Level",     value: Math.min((data.level ?? 1) * 10, 100) },
-                        { skill: "Quizzes",   value: Math.min((data.quizzesTaken ?? 0) * 5, 100) },
-                      ]}
-                      cx="50%" cy="50%" outerRadius="70%"
-                    >
+                    <RadarChart data={[
+                      { skill: "Accuracy",  value: Math.min(data.accuracy ?? 0, 100) },
+                      { skill: "Streak",    value: Math.min((data.streak ?? 0) * 10, 100) },
+                      { skill: "Avg Score", value: Math.min(avgScore, 100) },
+                      { skill: "Level",     value: Math.min((data.level ?? 1) * 10, 100) },
+                      { skill: "Quizzes",   value: Math.min((data.quizzesTaken ?? 0) * 5, 100) },
+                    ]} cx="50%" cy="50%" outerRadius="70%">
                       <PolarGrid stroke="rgba(255,255,255,0.08)" />
                       <PolarAngleAxis dataKey="skill" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 9 }} />
                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
@@ -577,106 +480,168 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* ══════════════════════════════════════
-            ABOUT COGNIVRA
-        ══════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.6 }}
           className="glass-card overflow-hidden"
         >
-          {/* Banner */}
+          {}
           <div className="relative w-full aspect-[21/6] sm:aspect-[21/5]">
             <Image src="/Logo2.png" alt="Cognivra" fill className="object-cover" priority />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1c] via-[#0a0f1c]/30 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1c] via-[#0a0f1c]/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0a0f1c]/60 via-transparent to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-400/80 mb-2">AI-Powered Learning Platform</p>
               <h2 className="text-2xl sm:text-4xl font-extrabold text-white leading-tight">
                 About{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
                   Cognivra Adaptive
                 </span>
               </h2>
-              <p className="text-white/50 text-sm mt-1">Intelligent AI-Powered Adaptive Learning</p>
             </div>
           </div>
 
-          <div className="p-6 sm:p-8 space-y-6">
-            <p className="text-white/60 leading-relaxed">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 font-semibold">
-                Cognivra Adaptive
-              </span>{" "}
-              is an AI-powered platform that personalizes education by analyzing your quiz performance,
-              tracking progress, and dynamically adjusting difficulty to strengthen weak areas while
-              reinforcing mastered concepts.
+          <div className="p-6 sm:p-10 space-y-8">
+            <p className="text-white/55 leading-relaxed text-sm sm:text-base max-w-3xl">
+              <span className="text-white font-semibold">Cognivra Adaptive</span> is an intelligent learning platform that
+              analyzes your quiz performance in real time, tracks your progress across sessions, and dynamically
+              adjusts question difficulty to reinforce weak areas while building on your strengths.
             </p>
 
+            {}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { icon: "📊", title: "Performance Tracking",  desc: "Real-time analytics visualize your score trends, XP growth, and concept mastery over time." },
-                { icon: "🚀", title: "Adaptive Intelligence", desc: "The system detects weak topics and generates targeted questions to optimize learning efficiency." },
-                { icon: "🏆", title: "Gamified Motivation",   desc: "XP, levels, streaks, and leaderboards keep you engaged while building consistent habits." },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="bg-white/[0.03] border border-white/5 rounded-2xl p-5">
-                  <span className="text-2xl mb-3 block">{icon}</span>
+                {
+                  icon: <LineChart className="w-5 h-5" />,
+                  accent: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+                  title: "Performance Tracking",
+                  desc: "Real-time analytics surface score trends, XP growth, and concept mastery across every session.",
+                },
+                {
+                  icon: <Cpu className="w-5 h-5" />,
+                  accent: "text-violet-400 bg-violet-500/10 border-violet-500/20",
+                  title: "Adaptive Intelligence",
+                  desc: "The AI detects knowledge gaps and generates targeted questions calibrated to your current skill level.",
+                },
+                {
+                  icon: <Layers className="w-5 h-5" />,
+                  accent: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+                  title: "Gamified Progression",
+                  desc: "XP, levels, streaks, and leagues turn consistent practice into a rewarding long-term habit.",
+                },
+              ].map(({ icon, accent, title, desc }) => (
+                <div key={title} className="group bg-white/[0.03] border border-white/8 rounded-2xl p-6 hover:bg-white/[0.06] hover:border-white/12 transition-all duration-300">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border mb-4 ${accent}`}>
+                    {icon}
+                  </div>
                   <h4 className="text-white font-semibold text-sm mb-2">{title}</h4>
                   <p className="text-white/40 text-xs leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {}
+            <div className="grid grid-cols-3 divide-x divide-white/8 border border-white/8 rounded-2xl overflow-hidden">
+              {[
+                { value: "AI-Powered", label: "Question Generation" },
+                { value: "Adaptive",   label: "Difficulty System"   },
+                { value: "Real-Time",  label: "Progress Analytics"  },
+              ].map(({ value, label }) => (
+                <div key={label} className="px-6 py-5 bg-white/[0.02] text-center">
+                  <p className="text-base font-extrabold text-white mb-0.5">{value}</p>
+                  <p className="text-xs text-white/35 font-medium">{label}</p>
                 </div>
               ))}
             </div>
           </div>
         </motion.div>
 
-        {/* ══════════════════════════════════════
-            TEAM SECTION
-        ══════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5 }}
-          className="glass-card p-6 sm:p-10"
+          transition={{ duration: 0.6 }}
+          className="glass-card overflow-hidden"
         >
-          <div className="flex flex-col items-center text-center mb-10">
-            <div className="relative w-24 h-24 mb-5">
-              <Image src="/RTM.png" alt="Return To Monkey" fill className="object-contain" />
+          {}
+          <div className="relative px-6 sm:px-10 pt-10 pb-8 border-b border-white/5">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 via-transparent to-cyan-600/5" />
+            <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
+              <div className="relative w-20 h-20 flex-shrink-0">
+                <Image src="/RTM.png" alt="Return To Monkey" fill className="object-contain" />
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400/80 mb-1">Development Team</p>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
+                  Return To Monkey
+                </h2>
+                <p className="text-white/40 text-sm mt-1">
+                  Students from{" "}
+                  <span className="text-white/70 font-medium">Saipanyarangsit School</span>
+                  {" "}· Grade 11
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Member of{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
-                Saipanyarangsit School
-              </span>
-            </h2>
-            <p className="text-white/40 mt-2 text-sm">
-              Team <span className="text-white font-semibold">Return To Monkey</span>
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[
-              { src: "/1.png", name: "Phanyawat Wanmarat",   grade: "Grade 11", accent: "border-brand-accent1/40 shadow-[0_0_40px_rgba(99,102,241,0.25)]" },
-              { src: "/2.png", name: "Sher Youprayong",      grade: "Grade 11", accent: "border-brand-accent2/40 shadow-[0_0_40px_rgba(168,85,247,0.25)]" },
-              { src: "/3.png", name: "Panathorn Limthongkun", grade: "Grade 11", accent: "border-emerald-400/40 shadow-[0_0_40px_rgba(16,185,129,0.25)]" },
-            ].map(({ src, name, grade, accent }) => (
-              <motion.div
-                key={name}
-                whileHover={{ y: -6 }}
-                className="bg-white/[0.03] border border-white/5 rounded-2xl p-8 flex flex-col items-center text-center group"
-              >
-                <div className={`relative w-28 h-28 rounded-full overflow-hidden border-4 mb-4 group-hover:scale-105 transition-transform duration-300 ${accent}`}>
-                  <Image src={src} alt={name} fill className="object-cover" />
-                </div>
-                <h4 className="text-white font-semibold text-lg">{name}</h4>
-                <p className="text-white/40 text-sm mt-1">{grade}</p>
-              </motion.div>
-            ))}
+          {}
+          <div className="p-6 sm:p-10">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {[
+                {
+                  src:    "/1.png",
+                  name:   "Phanyawat Wanmarat",
+                  role:   "Full-Stack Developer",
+                  accent: "from-indigo-500/20 to-indigo-500/5",
+                  ring:   "ring-indigo-500/30",
+                  tag:    "bg-indigo-500/10 border-indigo-500/20 text-indigo-300",
+                },
+                {
+                  src:    "/2.png",
+                  name:   "Sher Youprayong",
+                  role:   "UI / UX Designer",
+                  accent: "from-violet-500/20 to-violet-500/5",
+                  ring:   "ring-violet-500/30",
+                  tag:    "bg-violet-500/10 border-violet-500/20 text-violet-300",
+                },
+                {
+                  src:    "/3.png",
+                  name:   "Panathorn Limthongkun",
+                  role:   "AI & Backend Engineer",
+                  accent: "from-emerald-500/20 to-emerald-500/5",
+                  ring:   "ring-emerald-500/30",
+                  tag:    "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
+                },
+              ].map(({ src, name, role, accent, ring, tag }) => (
+                <motion.div
+                  key={name}
+                  whileHover={{ y: -6 }}
+                  className={`relative bg-gradient-to-b ${accent} border border-white/8 rounded-2xl p-7 flex flex-col items-center text-center group overflow-hidden`}
+                >
+                  {}
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-32 bg-white/5 blur-[60px] rounded-full pointer-events-none" />
+
+                  <div className={`relative w-24 h-24 rounded-full overflow-hidden ring-4 ${ring} mb-5 group-hover:scale-105 transition-transform duration-300`}>
+                    <Image src={src} alt={name} fill className="object-cover" />
+                  </div>
+
+                  <h4 className="text-white font-bold text-base mb-1">{name}</h4>
+
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border mt-1 ${tag}`}>
+                    <User className="w-3 h-3" />
+                    {role}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-white/5 text-center">
-            <p className="text-white/25 text-xs tracking-widest">
-              © 2026 Return To Monkey · All rights reserved
-            </p>
+          {}
+          <div className="px-6 sm:px-10 py-5 border-t border-white/5 bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-xs text-white/20 tracking-widest uppercase">Cognivra Adaptive</p>
+            <p className="text-xs text-white/20">© 2026 Return To Monkey · All rights reserved</p>
           </div>
         </motion.div>
 
@@ -685,11 +650,9 @@ export default function Dashboard() {
   );
 }
 
-/* ─── StatCard kept for compatibility ───────────────────── */
 function StatCard({ title, value, color }: { title: string; value: string | number; color: string }) {
   return (
-    <motion.div whileHover={{ y: -4, scale: 1.02 }}
-      className="glass-card p-6 relative overflow-hidden group">
+    <motion.div whileHover={{ y: -4, scale: 1.02 }} className="glass-card p-6 relative overflow-hidden group">
       <div className={`absolute -right-8 -top-8 w-32 h-32 rounded-full blur-[40px] opacity-10 group-hover:opacity-25 transition-opacity bg-current ${color}`} />
       <h3 className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-2">{title}</h3>
       <p className={`text-4xl font-black ${color}`}>{value}</p>
