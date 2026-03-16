@@ -38,26 +38,26 @@ function getWrongEntries(
 export default function Adaptive() {
   const router = useRouter();
 
-  const [topic, setTopic] = useState("");
+  const [topic,         setTopic]         = useState("");
   const [questionCount, setQuestionCount] = useState(5);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [revealed, setRevealed] = useState(false);
+  const [questions,     setQuestions]     = useState<Question[]>([]);
+  const [selected,      setSelected]      = useState<string[]>([]);
+  const [currentIndex,  setCurrentIndex]  = useState(0);
+  const [submitted,     setSubmitted]     = useState(false);
+  const [result,        setResult]        = useState<any>(null);
+  const [loading,       setLoading]       = useState(false);
+  const [revealed,      setRevealed]      = useState(false);
   const [quizSessionId] = useState(() => crypto.randomUUID());
 
-  const submittingRef = useRef(false);
+  const submittingRef  = useRef(false);
   const actionGuardRef = useRef(false);
-  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
+  const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
   const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
-  const [timerHours, setTimerHours] = useState(0);
+  const [timerHours,   setTimerHours]   = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [timeLeft,     setTimeLeft]     = useState<number | null>(null);
   const timerPerQuestion = timerHours * 3600 + timerMinutes * 60 + timerSeconds;
 
   const formatTime = (secs: number) => {
@@ -71,8 +71,8 @@ export default function Adaptive() {
     timeLeft !== null && timeLeft <= 10
       ? { badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse", bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" }
       : timeLeft !== null && timeLeft <= 30
-        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20", bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
-        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20", bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
+        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",          bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
+        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",  bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
 
   useEffect(() => {
     if (timerPerQuestion <= 0 || submitted || questions.length === 0) return;
@@ -110,12 +110,12 @@ export default function Adaptive() {
     submittingRef.current = true;
     try {
       const formatted = questions.map((q, i) => ({
-        question: q.question,
-        type: q.type,
+        question:      q.question,
+        type:          q.type,
         correctAnswer: q.answer,
-        userAnswer: selected[i],
-        topic: "Cognivra Adaptive Training",
-        difficulty: q.difficulty || 2,
+        userAnswer:    selected[i],
+        topic:         "Cognivra Adaptive Training",
+        difficulty:    q.difficulty || 2,
       }));
       const res = await API.post("/quiz/submit", { answers: formatted, quizSessionId });
       setResult(res.data);
@@ -134,9 +134,9 @@ export default function Adaptive() {
       if (q?.type === "written" || q?.type === "code") {
         try {
           const { data } = await API.post("/quiz/grade-written", {
-            question: q.question,
+            question:      q.question,
             correctAnswer: q.answer,
-            userAnswer: selected[currentIndex],
+            userAnswer:    selected[currentIndex],
           });
           setWrittenCorrect(data.correct);
           setWrittenExplanation(data.explanation ?? null);
@@ -169,8 +169,8 @@ export default function Adaptive() {
   const progress = questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
   const scorePercent = result ? result.percent : 0;
-  const scoreLabel = scorePercent >= 90 ? "Outstanding!" : scorePercent >= 70 ? "Great Work!" : scorePercent >= 50 ? "Good Effort!" : "Keep Practicing!";
-  const scoreColor = scorePercent >= 90 ? "text-emerald-400" : scorePercent >= 70 ? "text-brand-accent1" : scorePercent >= 50 ? "text-amber-400" : "text-rose-400";
+  const scoreLabel  = scorePercent >= 90 ? "Outstanding!" : scorePercent >= 70 ? "Great Work!" : scorePercent >= 50 ? "Good Effort!" : "Keep Practicing!";
+  const scoreColor  = scorePercent >= 90 ? "text-emerald-400" : scorePercent >= 70 ? "text-brand-accent1" : scorePercent >= 50 ? "text-amber-400" : "text-rose-400";
 
   const TimerDropdown = ({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (v: number) => void }) => (
     <div className="flex flex-col items-center gap-1.5">
@@ -249,7 +249,7 @@ export default function Adaptive() {
                     <span className="text-white/20 font-normal normal-case tracking-normal text-xs ml-1">(0 = no limit)</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <TimerDropdown label="HH" value={timerHours} max={24} onChange={setTimerHours} />
+                    <TimerDropdown label="HH" value={timerHours}   max={24} onChange={setTimerHours} />
                     <span className="text-white/30 font-bold text-2xl pb-1">:</span>
                     <TimerDropdown label="MM" value={timerMinutes} max={60} onChange={setTimerMinutes} />
                     <span className="text-white/30 font-bold text-2xl pb-1">:</span>
@@ -269,7 +269,7 @@ export default function Adaptive() {
                 <span className="absolute inset-0 bg-gradient-to-r from-brand-accent1 via-brand-accent2 to-brand-accent1 bg-[length:200%_auto] animate-gradient-slow" />
                 <div className="relative bg-brand-dark px-8 py-5 rounded-[14px] flex items-center justify-center gap-3 transition-all group-hover:bg-opacity-0">
                   {loading ? (<><Lucide.Loader2 className="w-5 h-5 animate-spin" /><span className="text-lg font-bold">Generating Questions...</span></>)
-                    : (<><Lucide.Sparkles className="w-5 h-5" /><span className="text-lg font-bold">Start Adaptive Practice</span></>)}
+                           : (<><Lucide.Sparkles className="w-5 h-5" /><span className="text-lg font-bold">Start Adaptive Practice</span></>)}
                 </div>
               </button>
             </motion.div>
@@ -465,7 +465,7 @@ export default function Adaptive() {
                             <p className="text-xs text-brand-accent1/60 uppercase tracking-widest font-bold mb-1">Explanation</p>
                             <p className="text-sm text-white/75 leading-relaxed">
                               {isCorrect ? (currentQuestion.explanation?.correct || "Excellent understanding.")
-                                : (currentQuestion.explanation?.correct || "Review this concept carefully.")}
+                                         : (currentQuestion.explanation?.correct || "Review this concept carefully.")}
                             </p>
                           </div>
                         </div>
@@ -529,8 +529,8 @@ export default function Adaptive() {
 
               <div className="space-y-4">
                 {questions.map((q, index) => {
-                  const userAnswer = selected[index];
-                  const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                  const userAnswer   = selected[index];
+                  const correct      = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
                   const wrongEntries = getWrongEntries(q.options, q.answer, q.explanation?.incorrect ?? {});
                   return (
                     <motion.div key={index} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}

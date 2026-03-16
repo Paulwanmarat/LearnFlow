@@ -42,24 +42,24 @@ export default function QuizClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const summary = searchParams.get("summary") || "";
-  const topic = searchParams.get("topic") || "";
-  const count = Number(searchParams.get("count") || 5);
+  const summary          = searchParams.get("summary") || "";
+  const topic            = searchParams.get("topic")   || "";
+  const count            = Number(searchParams.get("count") || 5);
   const timerPerQuestion = Number(searchParams.get("timer") || 0);
 
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [questions,        setQuestions]        = useState<Question[]>([]);
+  const [selected,         setSelected]         = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [revealed, setRevealed] = useState(false);
+  const [currentIndex,     setCurrentIndex]     = useState(0);
+  const [submitted,        setSubmitted]        = useState(false);
+  const [result,           setResult]           = useState<any>(null);
+  const [timeLeft,         setTimeLeft]         = useState<number | null>(null);
+  const [revealed,         setRevealed]         = useState(false);
   const [quizSessionId] = useState(() => crypto.randomUUID());
 
-  const submittingRef = useRef(false);
+  const submittingRef  = useRef(false);
   const actionGuardRef = useRef(false);
-  const [writtenCorrect, setWrittenCorrect] = useState<boolean | null>(null);
+  const [writtenCorrect,     setWrittenCorrect]     = useState<boolean | null>(null);
   const [writtenExplanation, setWrittenExplanation] = useState<string | null>(null);
 
   const formatTime = (seconds: number) => {
@@ -101,7 +101,7 @@ export default function QuizClient() {
   const isCorrect = currentQuestion?.type === "written" || currentQuestion?.type === "code"
     ? (writtenCorrect ?? false)
     : selected[currentIndex]?.trim().toLowerCase() ===
-    currentQuestion?.answer?.trim().toLowerCase();
+      currentQuestion?.answer?.trim().toLowerCase();
   const progress =
     questions.length === 0 ? 0 : ((currentIndex + 1) / questions.length) * 100;
 
@@ -114,9 +114,9 @@ export default function QuizClient() {
       if (q?.type === "written" || q?.type === "code") {
         try {
           const { data } = await API.post("/quiz/grade-written", {
-            question: q.question,
+            question:      q.question,
             correctAnswer: q.answer,
-            userAnswer: selected[currentIndex],
+            userAnswer:    selected[currentIndex],
           });
           setWrittenCorrect(data.correct);
           setWrittenExplanation(data.explanation ?? null);
@@ -149,13 +149,13 @@ export default function QuizClient() {
     submittingRef.current = true;
 
     const formatted = questions.map((q, i) => ({
-      question: q.question,
-      type: q.type,
+      question:      q.question,
+      type:          q.type,
       correctAnswer: q.answer,
-      userAnswer: selected[i],
-      language: q.type === "code" ? selectedLanguage[i] : undefined,
+      userAnswer:    selected[i],
+      language:      q.type === "code" ? selectedLanguage[i] : undefined,
       topic,
-      difficulty: q.difficulty || 1,
+      difficulty:    q.difficulty || 1,
     }));
 
     const res = await API.post("/quiz/submit", { answers: formatted, quizSessionId });
@@ -167,8 +167,8 @@ export default function QuizClient() {
     timeLeft !== null && timeLeft <= 10
       ? { badge: "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-rose-500/20 animate-pulse", bar: "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" }
       : timeLeft !== null && timeLeft <= 30
-        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20", bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
-        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20", bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
+        ? { badge: "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-amber-500/20",          bar: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" }
+        : { badge: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-emerald-500/20",  bar: "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" };
 
   return (
     <ProtectedRoute>
@@ -243,7 +243,7 @@ export default function QuizClient() {
                 <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold uppercase tracking-wider text-brand-accent1 whitespace-nowrap hidden sm:block">
                   {currentQuestion.type === "mcq" ? "Multiple Choice"
                     : currentQuestion.type === "tf" ? "True / False"
-                      : currentQuestion.type === "written" ? "Written" : "Code"}
+                    : currentQuestion.type === "written" ? "Written" : "Code"}
                 </div>
               </div>
 
@@ -307,10 +307,12 @@ export default function QuizClient() {
                       transition={{ duration: 0.3 }} className="mt-6 space-y-3">
 
                       {/* Result header */}
-                      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border ${isCorrect ? "bg-emerald-500/10 border-emerald-500/25" : "bg-rose-500/10 border-rose-500/25"
+                      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border ${
+                        isCorrect ? "bg-emerald-500/10 border-emerald-500/25" : "bg-rose-500/10 border-rose-500/25"
+                      }`}>
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
                         }`}>
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                          }`}>
                           {isCorrect ? <Lucide.Check className="w-5 h-5" /> : <Lucide.X className="w-5 h-5" />}
                         </div>
                         <h3 className={`text-lg font-extrabold ${isCorrect ? "text-emerald-400" : "text-rose-400"}`}>
@@ -416,7 +418,7 @@ export default function QuizClient() {
                     <span className="text-lg font-bold text-white">
                       {!revealed ? "Check Answer"
                         : currentIndex === questions.length - 1 ? "Finish Quiz"
-                          : "Next Question"}
+                        : "Next Question"}
                     </span>
                     {revealed && <Lucide.ArrowRight className="w-5 h-5 text-white" />}
                   </div>
@@ -442,7 +444,7 @@ export default function QuizClient() {
             <div className="space-y-5">
               {questions.map((q, index) => {
                 const userAnswer = selected[index];
-                const correct = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
+                const correct    = userAnswer?.trim().toLowerCase() === q.answer.trim().toLowerCase();
                 const incorrectMap = typeof q.explanation === "object"
                   ? (q.explanation as Explanation).incorrect ?? {}
                   : {};
