@@ -20,7 +20,7 @@ import {
   Cpu, Layers, GraduationCap, School, User,
 } from "lucide-react";
 
-
+/* ─── Types ──────────────────────────────────────────────── */
 
 interface HistoryEntry {
   date:    string;
@@ -31,20 +31,20 @@ interface HistoryEntry {
 }
 
 interface DashboardData {
-  username:         string;
-  avatar?:          string;
-  xp:               number;
-  level:            number;
-  streak:           number;
-  league?:          string;
-  quizzesTaken?:    number;
+  username:          string;
+  avatar?:           string;
+  xp:                number;
+  level:             number;
+  streak:            number;
+  league?:           string;
+  quizzesTaken?:     number;
   lessonsGenerated?: number;
-  averageScore?:    number;
-  accuracy?:        number;
-  history:          HistoryEntry[];
+  averageScore?:     number;
+  accuracy?:         number;
+  history:           HistoryEntry[];
 }
 
-
+/* ─── Constants ──────────────────────────────────────────── */
 
 const XP_PER_LEVEL = 100;
 
@@ -56,12 +56,14 @@ const LEAGUE_CONFIG: Record<string, { label: string; color: string; glow: string
   Bronze:  { label: "Bronze",   color: "text-amber-600",  glow: "",                                         emoji: "🥉" },
 };
 
+/* ─── Helpers ────────────────────────────────────────────── */
+
 function useCountUp(target: number, duration = 1200) {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (target === 0) return;
-    const steps  = 40;
-    const step   = target / steps;
+    const steps   = 40;
+    const step    = target / steps;
     let   current = 0;
     const id = setInterval(() => {
       current += step;
@@ -73,16 +75,25 @@ function useCountUp(target: number, duration = 1200) {
   return val;
 }
 
-
-
-function formatHistoryDate(raw: string | Date): string {
+/**
+ * Short label for chart X-axis  e.g. "Mar 16"
+ * Falls back to just the index string if parsing fails.
+ */
+function shortDate(raw: string | Date): string {
   const d = new Date(raw);
   if (isNaN(d.getTime())) return String(raw);
-  return d.toLocaleString(undefined, {
-    month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+/**
+ * The backend pushes history entries to position 0 (newest first).
+ * Charts need oldest → newest, so we reverse a copy.
+ */
+function chronoHistory(history: HistoryEntry[], limit = 10): HistoryEntry[] {
+  return [...history].reverse().slice(-limit);
+}
+
+/* ─── Sub-components ─────────────────────────────────────── */
 
 function XpRing({ progress, level }: { progress: number; level: number }) {
   const r    = 54;
@@ -181,7 +192,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-
 function UserAvatar({ src, name, size = "lg" }: { src?: string; name: string; size?: "md" | "lg" | "xl" }) {
   const [err, setErr] = useState(false);
   const dims: Record<string, string> = {
@@ -202,6 +212,8 @@ function UserAvatar({ src, name, size = "lg" }: { src?: string; name: string; si
     </div>
   );
 }
+
+/* ─── Dashboard ──────────────────────────────────────────── */
 
 export default function Dashboard() {
   const router = useRouter();
@@ -249,25 +261,89 @@ export default function Dashboard() {
 
   if (!data) return null;
 
-  const progress      = ((data.xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
-  const xpToNext      = XP_PER_LEVEL - (data.xp % XP_PER_LEVEL);
-  const league        = data.league ?? "Bronze";
-  const lCfg          = LEAGUE_CONFIG[league] ?? LEAGUE_CONFIG.Bronze;
-  const recentHistory = data.history.slice(-10).map((h) => ({
-    ...h,
-    date: formatHistoryDate(h.date),
-  }));
+  /* ── Derived values ── */
+  const progress = ((data.xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const xpToNext = XP_PER_LEVEL - (data.xp % XP_PER_LEVEL);
+  const league   = data.league ?? "Bronze";
+  const lCfg     = LEAGUE_CONFIG[league] ?? LEAGUE_CONFIG.Bronze;
 
+  /* avgScore: recompute locally from full history for accuracy */
   const avgScore = data.history.length
     ? Math.round(data.history.reduce((a, h) => a + h.percent, 0) / data.history.length)
     : 0;
+
+  const bestScore = data.history.length
+    ? Math.max(...data.history.map(h => h.percent))
+    : 0;
+
+  const chartHistory = chronoHistory(data.history, 10).map((h, i) => ({
+    ...h,
+    label: shortDate(h.date),
+    idx: `#${data.history.length - (data.history.length - chronoHistory(data.history, 10).length) - i}`,
+  }));
+
+  /* Score band buckets */
+  const scoreBands = [
+    { band: "0–40",   count: data.history.filter(h => h.percent <= 40).length },
+    { band: "41–60",  count: data.history.filter(h => h.percent > 40  && h.percent <= 60).length },
+    { band: "61–80",  count: data.history.filter(h => h.percent > 60  && h.percent <= 80).length },
+    { band: "81–100", count: data.history.filter(h => h.percent > 80).length },
+  ];
+
+  /*
+   * FIX: Radar normalization — each axis now maps to a 0-100 scale
+   * using sensible milestones so the chart fills meaningfully.
+   *   Accuracy:  already 0-100
+   *   Streak:    cap at 30 days (common habit milestone)
+   *   Avg Score: already 0-100
+   *   Level:     cap at 20 (reasonable long-term goal)
+   *   Quizzes:   cap at 50
+   */
+  const radarData = [
+    { skill: "Accuracy",  value: Math.min(avgScore, 100) },
+    { skill: "Streak",    value: Math.min(Math.round((data.streak / 30) * 100), 100) },
+    { skill: "Avg Score", value: Math.min(avgScore, 100) },
+    { skill: "Level",     value: Math.min(Math.round((data.level / 20) * 100), 100) },
+    { skill: "Quizzes",   value: Math.min(Math.round(((data.quizzesTaken ?? 0) / 50) * 100), 100) },
+  ];
+
+  /* FIX: independent max values for progress bars */
+  const lessonMax  = Math.max(data.lessonsGenerated ?? 0, 1);
+  const quizMax    = Math.max(data.quizzesTaken     ?? 0, 1);
+  const progressBars = [
+    {
+      label:  "Lessons Generated",
+      value:  data.lessonsGenerated ?? 0,
+      max:    Math.max(lessonMax, 10),          // floor at 10 so bar isn't always 100%
+      color:  "from-violet-500 to-purple-400",
+      accent: "text-violet-400",
+      icon:   <Sparkles className="w-3 h-3" />,
+    },
+    {
+      label:  "Quizzes Taken",
+      value:  data.quizzesTaken ?? 0,
+      max:    Math.max(quizMax, 10),
+      color:  "from-emerald-500 to-teal-400",
+      accent: "text-emerald-400",
+      icon:   <BookOpen className="w-3 h-3" />,
+    },
+    {
+      label:  "Accuracy",
+      value:  avgScore,
+      max:    100,
+      color:  "from-pink-500 to-rose-400",
+      accent: "text-pink-400",
+      icon:   <Target className="w-3 h-3" />,
+      suffix: "%",
+    },
+  ];
 
   return (
     <ProtectedRoute>
       {levelUp && <Confetti recycle={false} numberOfPieces={300} />}
       <Navbar />
 
-      {}
+      {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/8 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/3 right-0 w-[500px] h-[400px] bg-cyan-600/6 blur-[120px] rounded-full" />
@@ -275,6 +351,7 @@ export default function Dashboard() {
 
       <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto space-y-6 relative z-10">
 
+        {/* ── Hero card ── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <div className="relative">
@@ -300,10 +377,10 @@ export default function Dashboard() {
                 {lCfg.emoji} {league} League
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatPill icon={<Zap       className="w-4 h-4" />} label="Total XP"   value={displayXp.toLocaleString()} color="bg-indigo-500/20 text-indigo-400"  delay={0.1}  />
-                <StatPill icon={<Flame     className="w-4 h-4" />} label="Day Streak" value={`${displayStreak} days`}     color="bg-orange-500/20 text-orange-400"  delay={0.15} />
-                <StatPill icon={<Target    className="w-4 h-4" />} label="Avg Score"  value={`${avgScore}%`}             color="bg-pink-500/20 text-pink-400"      delay={0.2}  />
-                <StatPill icon={<BookOpen  className="w-4 h-4" />} label="Quizzes"    value={data.quizzesTaken ?? 0}      color="bg-emerald-500/20 text-emerald-400" delay={0.25} />
+                <StatPill icon={<Zap      className="w-4 h-4" />} label="Total XP"   value={displayXp.toLocaleString()} color="bg-indigo-500/20 text-indigo-400"  delay={0.1}  />
+                <StatPill icon={<Flame    className="w-4 h-4" />} label="Day Streak" value={`${displayStreak} days`}     color="bg-orange-500/20 text-orange-400"  delay={0.15} />
+                <StatPill icon={<Target   className="w-4 h-4" />} label="Avg Score"  value={`${avgScore}%`}             color="bg-pink-500/20 text-pink-400"      delay={0.2}  />
+                <StatPill icon={<BookOpen className="w-4 h-4" />} label="Quizzes"    value={data.quizzesTaken ?? 0}      color="bg-emerald-500/20 text-emerald-400" delay={0.25} />
               </div>
             </div>
 
@@ -316,18 +393,20 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
+        {/* ── Action cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <ActionCard icon={<Brain  className="w-6 h-6 text-cyan-400"   />} title="Start Learning"  desc="Generate AI-powered lessons on any topic. Adaptive difficulty adjusts as you improve." cta="Go to Learning Lab"   onClick={() => router.push("/learning")}    gradient="bg-gradient-to-br from-cyan-600/10 to-indigo-600/10"   delay={0.1}  />
           <ActionCard icon={<Play   className="w-6 h-6 text-violet-400" />} title="Adaptive Mode"   desc="Let the AI challenge you with personalized questions based on your weak spots."        cta="Start Adaptive Quiz" onClick={() => router.push("/adaptive")}    gradient="bg-gradient-to-br from-violet-600/10 to-pink-600/10"   delay={0.15} />
           <ActionCard icon={<Trophy className="w-6 h-6 text-yellow-400" />} title="Leaderboard"     desc="See where you rank globally and compete against top learners this week."               cta="View Rankings"       onClick={() => router.push("/leaderboard")} gradient="bg-gradient-to-br from-yellow-600/10 to-amber-600/10"  delay={0.2}  />
         </div>
 
+        {/* ── Stat mini-cards ── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
           className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { icon: <BarChart2 className="w-5 h-5" />, label: "Accuracy",   value: `${data.accuracy ?? 0}%`,           color: "from-cyan-500/20 to-cyan-500/5",     accent: "text-cyan-400",   border: "border-cyan-500/10"   },
+            { icon: <BarChart2 className="w-5 h-5" />, label: "Accuracy",   value: `${avgScore}%`,                     color: "from-cyan-500/20 to-cyan-500/5",     accent: "text-cyan-400",   border: "border-cyan-500/10"   },
             { icon: <Sparkles  className="w-5 h-5" />, label: "Lessons",    value: data.lessonsGenerated ?? 0,          color: "from-violet-500/20 to-violet-500/5", accent: "text-violet-400", border: "border-violet-500/10" },
-            { icon: <Award     className="w-5 h-5" />, label: "Best Score", value: data.history.length ? `${Math.max(...data.history.map(h => h.percent))}%` : "—", color: "from-yellow-500/20 to-yellow-500/5", accent: "text-yellow-400", border: "border-yellow-500/10" },
+            { icon: <Award     className="w-5 h-5" />, label: "Best Score", value: data.history.length ? `${bestScore}%` : "—", color: "from-yellow-500/20 to-yellow-500/5", accent: "text-yellow-400", border: "border-yellow-500/10" },
             { icon: <Clock     className="w-5 h-5" />, label: "This Level", value: `${data.xp % XP_PER_LEVEL}/${XP_PER_LEVEL} XP`, color: "from-emerald-500/20 to-emerald-500/5", accent: "text-emerald-400", border: "border-emerald-500/10" },
           ].map(({ icon, label, value, color, accent, border }, i) => (
             <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
@@ -340,7 +419,10 @@ export default function Dashboard() {
           ))}
         </motion.div>
 
+        {/* ── Analytics ── */}
         <div className="space-y-4">
+
+          {/* Performance charts — only shown when there's history */}
           {data.history.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
               className="glass-card p-6">
@@ -352,11 +434,13 @@ export default function Dashboard() {
                 <span className="text-xs text-white/30">Last {Math.min(data.history.length, 10)} quizzes</span>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
+
+                {/* Score Trend (Area) */}
                 <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                   <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Score Trend</p>
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                      <AreaChart data={chartHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                         <defs>
                           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.4} />
@@ -364,21 +448,47 @@ export default function Dashboard() {
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} dy={6} />
-                        <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} domain={[0, 100]} />
+                        {/*
+                          FIX: use "label" (short date) as the axis key.
+                          interval="preserveStartEnd" avoids crowding.
+                          Tick angle -35 prevents overlaps on mobile.
+                        */}
+                        <XAxis
+                          dataKey="label"
+                          stroke="transparent"
+                          tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }}
+                          tickLine={false}
+                          interval="preserveStartEnd"
+                          angle={-35}
+                          textAnchor="end"
+                          height={36}
+                        />
+                        <YAxis
+                          stroke="transparent"
+                          tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }}
+                          tickLine={false}
+                          domain={[0, 100]}
+                          tickFormatter={(v) => `${v}%`}
+                        />
                         <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2.5} fill="url(#areaGrad)"
+                        <Area
+                          type="monotone" dataKey="percent"
+                          stroke="#6366f1" strokeWidth={2.5}
+                          fill="url(#areaGrad)"
                           dot={{ fill: "#0f172a", stroke: "#6366f1", strokeWidth: 2, r: 3 }}
-                          activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} />
+                          activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
+                        />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
+
+                {/* Per-quiz bar chart */}
                 <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                   <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Per-Quiz Scores</p>
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={recentHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                      <BarChart data={chartHistory} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                         <defs>
                           <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%"   stopColor="#a855f7" stopOpacity={1}   />
@@ -386,8 +496,23 @@ export default function Dashboard() {
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="date" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} dy={6} />
-                        <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} domain={[0, 100]} />
+                        <XAxis
+                          dataKey="label"
+                          stroke="transparent"
+                          tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }}
+                          tickLine={false}
+                          interval="preserveStartEnd"
+                          angle={-35}
+                          textAnchor="end"
+                          height={36}
+                        />
+                        <YAxis
+                          stroke="transparent"
+                          tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }}
+                          tickLine={false}
+                          domain={[0, 100]}
+                          tickFormatter={(v) => `${v}%`}
+                        />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
                         <Bar dataKey="percent" fill="url(#barGrad)" radius={[4, 4, 0, 0]} />
                       </BarChart>
@@ -398,6 +523,7 @@ export default function Dashboard() {
             </motion.div>
           )}
 
+          {/* Learning Activity */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
             className="glass-card p-6">
             <div className="flex items-center justify-between mb-5">
@@ -407,26 +533,30 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+              {/* Progress bars — FIX: independent max per bar */}
               <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5 space-y-4">
                 <p className="text-xs text-white/40 font-semibold uppercase tracking-widest">Progress Bars</p>
-                {[
-                  { label: "Lessons Generated", value: data.lessonsGenerated ?? 0, max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-violet-500 to-purple-400", accent: "text-violet-400",  icon: <Sparkles className="w-3 h-3" /> },
-                  { label: "Quizzes Taken",     value: data.quizzesTaken   ?? 0,   max: Math.max((data.lessonsGenerated ?? 0) + (data.quizzesTaken ?? 0), 1), color: "from-emerald-500 to-teal-400",  accent: "text-emerald-400", icon: <BookOpen className="w-3 h-3" /> },
-                  { label: "Accuracy",          value: data.accuracy       ?? 0,   max: 100, color: "from-pink-500 to-rose-400", accent: "text-pink-400", icon: <Target className="w-3 h-3" />, suffix: "%" },
-                ].map(({ label, value, max, color, accent, icon, suffix = "" }) => (
+                {progressBars.map(({ label, value, max, color, accent, icon, suffix = "" }) => (
                   <div key={label}>
                     <div className="flex justify-between items-center mb-1.5">
                       <div className={`flex items-center gap-1.5 ${accent} text-xs font-medium`}>{icon} {label}</div>
                       <span className={`text-xs font-extrabold ${accent}`}>{value}{suffix}</span>
                     </div>
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} whileInView={{ width: `${Math.min((value / max) * 100, 100)}%` }}
-                        viewport={{ once: true }} transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-full bg-gradient-to-r ${color} rounded-full`} />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${Math.min((value / max) * 100, 100)}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full bg-gradient-to-r ${color} rounded-full`}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* Score bands */}
               <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                 <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Score Bands</p>
                 {data.history.length === 0 ? (
@@ -434,19 +564,26 @@ export default function Dashboard() {
                 ) : (
                   <div className="h-36">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={[
-                        { band: "0–40",   count: data.history.filter(h => h.percent <= 40).length },
-                        { band: "41–60",  count: data.history.filter(h => h.percent > 40  && h.percent <= 60).length },
-                        { band: "61–80",  count: data.history.filter(h => h.percent > 60  && h.percent <= 80).length },
-                        { band: "81–100", count: data.history.filter(h => h.percent > 80).length },
-                      ]} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                      <BarChart data={scoreBands} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="band" stroke="transparent" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }} tickLine={false} />
-                        <YAxis stroke="transparent" tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} tickLine={false} allowDecimals={false} />
-                        <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                        <XAxis
+                          dataKey="band"
+                          stroke="transparent"
+                          tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          stroke="transparent"
+                          tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }}
+                          tickLine={false}
+                          allowDecimals={false}
+                        />
+                        <Tooltip
+                          cursor={{ fill: "rgba(255,255,255,0.04)" }}
                           contentStyle={{ backgroundColor: "#0d1227", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px" }}
                           itemStyle={{ color: "#fff" }}
-                          formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, ""]} />
+                          formatter={(v: any) => [`${v} quiz${v !== 1 ? "zes" : ""}`, ""]}
+                        />
                         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                           {["#ef4444","#f97316","#eab308","#22c55e"].map((color, i) => (
                             <Cell key={i} fill={color} fillOpacity={0.85} />
@@ -457,17 +594,13 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+
+              {/* Skill Radar — FIX: uses sensible normalization */}
               <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
                 <p className="text-xs text-white/40 font-semibold uppercase tracking-widest mb-3">Skill Profile</p>
                 <div className="h-36">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={[
-                      { skill: "Accuracy",  value: Math.min(data.accuracy ?? 0, 100) },
-                      { skill: "Streak",    value: Math.min((data.streak ?? 0) * 10, 100) },
-                      { skill: "Avg Score", value: Math.min(avgScore, 100) },
-                      { skill: "Level",     value: Math.min((data.level ?? 1) * 10, 100) },
-                      { skill: "Quizzes",   value: Math.min((data.quizzesTaken ?? 0) * 5, 100) },
-                    ]} cx="50%" cy="50%" outerRadius="70%">
+                    <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
                       <PolarGrid stroke="rgba(255,255,255,0.08)" />
                       <PolarAngleAxis dataKey="skill" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 9 }} />
                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
@@ -475,11 +608,24 @@ export default function Dashboard() {
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
+                {/* Legend hints */}
+                <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1">
+                  {[
+                    { label: "Streak",  hint: "out of 30 days" },
+                    { label: "Level",   hint: "out of 20"      },
+                    { label: "Quizzes", hint: "out of 50"      },
+                  ].map(({ label, hint }) => (
+                    <p key={label} className="text-[10px] text-white/20 leading-tight">
+                      <span className="text-white/35 font-semibold">{label}</span> {hint}
+                    </p>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
         </div>
 
+        {/* ── About banner ── */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -487,7 +633,6 @@ export default function Dashboard() {
           transition={{ duration: 0.6 }}
           className="glass-card overflow-hidden"
         >
-          {}
           <div className="relative w-full aspect-[21/6] sm:aspect-[21/5]">
             <Image src="/Logo2.png" alt="Cognivra" fill className="object-cover" priority />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1c] via-[#0a0f1c]/40 to-transparent" />
@@ -510,39 +655,20 @@ export default function Dashboard() {
               adjusts question difficulty to reinforce weak areas while building on your strengths.
             </p>
 
-            {}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                {
-                  icon: <LineChart className="w-5 h-5" />,
-                  accent: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
-                  title: "Performance Tracking",
-                  desc: "Real-time analytics surface score trends, XP growth, and concept mastery across every session.",
-                },
-                {
-                  icon: <Cpu className="w-5 h-5" />,
-                  accent: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-                  title: "Adaptive Intelligence",
-                  desc: "The AI detects knowledge gaps and generates targeted questions calibrated to your current skill level.",
-                },
-                {
-                  icon: <Layers className="w-5 h-5" />,
-                  accent: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-                  title: "Gamified Progression",
-                  desc: "XP, levels, streaks, and leagues turn consistent practice into a rewarding long-term habit.",
-                },
+                { icon: <LineChart className="w-5 h-5" />, accent: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",     title: "Performance Tracking",   desc: "Real-time analytics surface score trends, XP growth, and concept mastery across every session." },
+                { icon: <Cpu       className="w-5 h-5" />, accent: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Adaptive Intelligence",  desc: "The AI detects knowledge gaps and generates targeted questions calibrated to your current skill level." },
+                { icon: <Layers    className="w-5 h-5" />, accent: "text-amber-400 bg-amber-500/10 border-amber-500/20",   title: "Gamified Progression",   desc: "XP, levels, streaks, and leagues turn consistent practice into a rewarding long-term habit." },
               ].map(({ icon, accent, title, desc }) => (
                 <div key={title} className="group bg-white/[0.03] border border-white/8 rounded-2xl p-6 hover:bg-white/[0.06] hover:border-white/12 transition-all duration-300">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border mb-4 ${accent}`}>
-                    {icon}
-                  </div>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border mb-4 ${accent}`}>{icon}</div>
                   <h4 className="text-white font-semibold text-sm mb-2">{title}</h4>
                   <p className="text-white/40 text-xs leading-relaxed">{desc}</p>
                 </div>
               ))}
             </div>
 
-            {}
             <div className="grid grid-cols-3 divide-x divide-white/8 border border-white/8 rounded-2xl overflow-hidden">
               {[
                 { value: "AI-Powered", label: "Question Generation" },
@@ -558,6 +684,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
+        {/* ── Team card ── */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -565,7 +692,6 @@ export default function Dashboard() {
           transition={{ duration: 0.6 }}
           className="glass-card overflow-hidden"
         >
-          {}
           <div className="relative px-6 sm:px-10 pt-10 pb-8 border-b border-white/5">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 via-transparent to-cyan-600/5" />
             <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
@@ -574,71 +700,36 @@ export default function Dashboard() {
               </div>
               <div className="text-center sm:text-left">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400/80 mb-1">Development Team</p>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-                  Return To Monkey
-                </h2>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Return To Monkey</h2>
                 <p className="text-white/40 text-sm mt-1">
-                  Students from{" "}
-                  <span className="text-white/70 font-medium">Saipanyarangsit School</span>
-                  {" "}· Grade 11
+                  Students from <span className="text-white/70 font-medium">Saipanyarangsit School</span> · Grade 11
                 </p>
               </div>
             </div>
           </div>
 
-          {}
           <div className="p-6 sm:p-10">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {[
-                {
-                  src:    "/1.png",
-                  name:   "Phanyawat Wanmarat",
-                  role:   "Full-Stack Developer",
-                  accent: "from-indigo-500/20 to-indigo-500/5",
-                  ring:   "ring-indigo-500/30",
-                  tag:    "bg-indigo-500/10 border-indigo-500/20 text-indigo-300",
-                },
-                {
-                  src:    "/2.png",
-                  name:   "Sher Youprayong",
-                  role:   "Researcher",
-                  accent: "from-violet-500/20 to-violet-500/5",
-                  ring:   "ring-violet-500/30",
-                  tag:    "bg-violet-500/10 border-violet-500/20 text-violet-300",
-                },
-                {
-                  src:    "/3.png",
-                  name:   "Panathorn Limthongkun",
-                  role:   "Researcher",
-                  accent: "from-emerald-500/20 to-emerald-500/5",
-                  ring:   "ring-emerald-500/30",
-                  tag:    "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
-                },
+                { src: "/1.png", name: "Phanyawat Wanmarat",   role: "Full-Stack Developer", accent: "from-indigo-500/20 to-indigo-500/5",   ring: "ring-indigo-500/30", tag: "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"   },
+                { src: "/2.png", name: "Sher Youprayong",       role: "Researcher",           accent: "from-violet-500/20 to-violet-500/5",   ring: "ring-violet-500/30", tag: "bg-violet-500/10 border-violet-500/20 text-violet-300"   },
+                { src: "/3.png", name: "Panathorn Limthongkun", role: "Researcher",           accent: "from-emerald-500/20 to-emerald-500/5", ring: "ring-emerald-500/30", tag: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" },
               ].map(({ src, name, role, accent, ring, tag }) => (
-                <motion.div
-                  key={name}
-                  whileHover={{ y: -6 }}
-                  className={`relative bg-gradient-to-b ${accent} border border-white/8 rounded-2xl p-7 flex flex-col items-center text-center group overflow-hidden`}
-                >
-                  {}
+                <motion.div key={name} whileHover={{ y: -6 }}
+                  className={`relative bg-gradient-to-b ${accent} border border-white/8 rounded-2xl p-7 flex flex-col items-center text-center group overflow-hidden`}>
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-32 bg-white/5 blur-[60px] rounded-full pointer-events-none" />
-
                   <div className={`relative w-24 h-24 rounded-full overflow-hidden ring-4 ${ring} mb-5 group-hover:scale-105 transition-transform duration-300`}>
                     <Image src={src} alt={name} fill className="object-cover" />
                   </div>
-
                   <h4 className="text-white font-bold text-base mb-1">{name}</h4>
-
                   <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border mt-1 ${tag}`}>
-                    <User className="w-3 h-3" />
-                    {role}
+                    <User className="w-3 h-3" />{role}
                   </span>
                 </motion.div>
               ))}
             </div>
           </div>
 
-          {}
           <div className="px-6 sm:px-10 py-5 border-t border-white/5 bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="text-xs text-white/20 tracking-widest uppercase">Cognivra Adaptive</p>
             <p className="text-xs text-white/20">© 2026 Return To Monkey · All rights reserved</p>
@@ -650,6 +741,7 @@ export default function Dashboard() {
   );
 }
 
+/* Unused but kept for reference */
 function StatCard({ title, value, color }: { title: string; value: string | number; color: string }) {
   return (
     <motion.div whileHover={{ y: -4, scale: 1.02 }} className="glass-card p-6 relative overflow-hidden group">
