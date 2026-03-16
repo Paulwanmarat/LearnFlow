@@ -109,7 +109,6 @@ function SearchDropdown({
 }: SearchDropdownProps) {
   return (
     <AnimatePresence>
-      {/* always rendered when parent is open — parent controls visibility */}
       <motion.div
         initial={{ opacity: 0, y: -6, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -200,9 +199,10 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  const searchRef   = useRef<HTMLDivElement>(null);
-  const inputRef    = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef      = useRef<HTMLDivElement>(null);
+  const inputRef       = useRef<HTMLInputElement>(null);       // desktop
+  const mobileInputRef = useRef<HTMLInputElement>(null);       // ← NEW: mobile
+  const debounceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* close mobile menu on route change */
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -229,9 +229,14 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  /* focus input when search opens */
+  /* ─── FIX: focus the correct input based on viewport ─── */
   useEffect(() => {
-    if (searchOpen) setTimeout(() => inputRef.current?.focus(), 50);
+    if (!searchOpen) return;
+    const isMobile = window.innerWidth < 768; // matches Tailwind's md breakpoint
+    const target = isMobile ? mobileInputRef : inputRef;
+    // Slight delay so the AnimatePresence element is fully mounted in the DOM
+    const id = setTimeout(() => target.current?.focus(), 80);
+    return () => clearTimeout(id);
   }, [searchOpen]);
 
   /* Escape key closes search */
@@ -465,8 +470,9 @@ export default function Navbar() {
           >
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
               <Search className="w-4 h-4 text-white/30 flex-shrink-0" />
+              {/* ─── FIX: uses mobileInputRef instead of shared inputRef ─── */}
               <input
-                ref={inputRef}
+                ref={mobileInputRef}
                 value={searchQuery}
                 onChange={(e) => handleSearchInput(e.target.value)}
                 placeholder="Search players…"
