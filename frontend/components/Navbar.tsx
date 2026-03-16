@@ -232,11 +232,17 @@ export default function Navbar() {
   /* ─── FIX: focus the correct input based on viewport ─── */
   useEffect(() => {
     if (!searchOpen) return;
-    const isMobile = window.innerWidth < 768; // matches Tailwind's md breakpoint
-    const target = isMobile ? mobileInputRef : inputRef;
-    // Slight delay so the AnimatePresence element is fully mounted in the DOM
-    const id = setTimeout(() => target.current?.focus(), 80);
-    return () => clearTimeout(id);
+
+    const focusInput = () => {
+      if (window.innerWidth < 768) {
+        mobileInputRef.current?.focus();
+      } else {
+        inputRef.current?.focus();
+      }
+    };
+
+    const timer = setTimeout(focusInput, 120);
+    return () => clearTimeout(timer);
   }, [searchOpen]);
 
   /* Escape key closes search */
@@ -470,9 +476,9 @@ export default function Navbar() {
           >
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
               <Search className="w-4 h-4 text-white/30 flex-shrink-0" />
-              {/* ─── FIX: uses mobileInputRef instead of shared inputRef ─── */}
               <input
                 ref={mobileInputRef}
+                autoFocus
                 value={searchQuery}
                 onChange={(e) => handleSearchInput(e.target.value)}
                 placeholder="Search players…"
