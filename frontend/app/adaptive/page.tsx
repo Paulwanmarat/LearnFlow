@@ -196,7 +196,7 @@ export default function Adaptive() {
           {/* HEADER */}
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-brand-accent1 font-semibold uppercase tracking-widest mb-4">
-              <Lucide.Brain className="w-4 h-4" /> AI-Powered
+              <Lucide.Brain className="w-4 h-4" /> AI Powered
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
               Adaptive Training
