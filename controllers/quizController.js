@@ -25,6 +25,13 @@ function detectSubject(text = "") {
   return keywords.some(k => text.toLowerCase().includes(k)) ? "programming" : "academic";
 }
 
+/* ─── Midnight-normalized date diff (days) ─────────────── */
+function daysBetween(a, b) {
+  const na = new Date(a); na.setHours(0, 0, 0, 0);
+  const nb = new Date(b); nb.setHours(0, 0, 0, 0);
+  return Math.round((nb - na) / 86_400_000);   // round avoids DST rounding errors
+}
+
 /* ===================================================== */
 /* 📖 GENERATE LESSON                                    */
 /* ===================================================== */
@@ -138,7 +145,6 @@ STRICT RULES:
 
       for (const q of parsed) {
         if (!q?.question || !q.answer) continue;
-        // ── FIXED: reject placeholder answers ──
         if (q.answer.trim().toLowerCase() === "string") continue;
         if (q.question.trim().toLowerCase() === "string") continue;
         if (q.answer.trim().toLowerCase().includes("actual correct answer")) continue;
@@ -242,19 +248,24 @@ exports.submitQuiz = async (req, res) => {
       })
     );
 
-    const score    = grading.reduce((a, b) => a + b, 0);
-    const total    = answers.length;
-    const percent  = total ? Math.round((score / total) * 100) : 0;
+    const score   = grading.reduce((a, b) => a + b, 0);
+    const total   = answers.length;
+    const percent = total ? Math.round((score / total) * 100) : 0;
     const earnedXP = percent >= 80 ? 20 : percent >= 50 ? 10 : 5;
 
+    /* ── FIX: streak uses midnight-normalised diff so time-of-day ──
+       is irrelevant. diff === 0 → same calendar day (no change),
+       diff === 1 → consecutive day (increment), diff > 1 → broken (reset to 1). */
+    const today = new Date();
     let newStreak = user.streak;
-    const today   = new Date();
+
     if (!user.lastQuizDate) {
       newStreak = 1;
     } else {
-      const diff = Math.floor((today - new Date(user.lastQuizDate)) / 86400000);
-      if      (diff === 1) newStreak += 1;
-      else if (diff  >  1) newStreak  = 1;
+      const diff = daysBetween(user.lastQuizDate, today);
+      if      (diff === 0) { /* same day — keep current streak, don't increment */ }
+      else if (diff === 1) { newStreak += 1; }
+      else                 { newStreak  = 1; }   // gap of 2+ days resets streak
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -267,7 +278,7 @@ exports.submitQuiz = async (req, res) => {
       { returnDocument: "after" }
     );
 
-    // ── Recalculate averageScore and accuracy from full history ──
+    // Recalculate averageScore and accuracy from full history
     if (updatedUser.history?.length) {
       const percents           = updatedUser.history.map(h => h.percent);
       const avg                = Math.round(percents.reduce((a, b) => a + b, 0) / percents.length);
@@ -354,7 +365,6 @@ STRICT RULES:
 
       for (const q of parsed) {
         if (!q?.question || !q.answer || !Array.isArray(q.options)) continue;
-        // ── FIXED: reject placeholder answers ──
         if (q.answer.trim().toLowerCase() === "string") continue;
         if (q.question.trim().toLowerCase() === "string") continue;
         if (q.answer.trim().toLowerCase().includes("must exactly match")) continue;
