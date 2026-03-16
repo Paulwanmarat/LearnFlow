@@ -444,14 +444,13 @@ exports.gradeWritten = async (req, res) => {
 
 async function gradeWrittenExplanation(question, correctAnswer, userAnswer) {
   try {
-    const prompt = `You are an educational tutor. In 1-2 sentences, explain clearly why the student's answer is incomplete or incorrect compared to the full correct answer, and what key points they missed.
+    const prompt = `You are an educational tutor. In 1-2 sentences, explain clearly why the student's answer is incorrect and what the correct answer means.
 
 Question: ${question}
 Correct Answer: ${correctAnswer}
 Student's Answer: ${userAnswer}
 
-Be specific and constructive. If the student was partially correct, acknowledge that but explain what was missing.
-No markdown. No bullet points. Plain sentences only.`;
+Be specific, helpful, and concise. No markdown. No bullet points. Plain sentences only.`;
     return (await callAI(prompt, 300)).trim();
   } catch {
     return `The correct answer is "${correctAnswer}". Review the concept and compare it with your answer.`;
@@ -488,26 +487,19 @@ Rules: Be clear and educational. No markdown. No extra commentary. Keep it conci
 async function gradeWithAI(question, modelAnswer, userAnswer) {
   if (!userAnswer?.trim()) return 0;
   try {
-    const prompt = `You are a lenient but fair educational grader for short written answers.
+    const prompt = `You are a strict but fair educational grader.
 
 Question: ${question}
 Expected Answer: ${modelAnswer}
 Student Answer: ${userAnswer}
 
-Grading rules — award 1 if ANY of these are true:
-- The student's answer is correct or equivalent in meaning
-- The student captures the core idea, even partially (e.g. mentioning 1-2 out of several valid reasons)
-- The answer uses different words but conveys the same concept
-- The answer is a reasonable synonym, paraphrase, or subset of the correct answer
-- The answer is a natural everyday way of expressing the same idea (e.g. "making friends" = "socialize with others", "fun" = "entertainment/enjoyment")
-
-Award 0 ONLY if:
-- The answer is clearly wrong, off-topic, or completely unrelated
-- The answer contradicts the correct answer
-- The answer is blank or meaningless
-
-Be generous — if the student demonstrates partial understanding of the correct concept, award 1.
-Ignore spelling mistakes, capitalisation, punctuation, and informal phrasing.
+Grading rules:
+- Award 1 if the student's answer is CORRECT or EQUIVALENT in meaning
+- Award 1 if the answer conveys the same concept even with different wording
+- Award 1 if it is a reasonable synonym, paraphrase, or alternate correct form
+- Award 1 if it captures the core idea even if not word-for-word identical
+- Award 0 only if the student's answer is clearly WRONG, off-topic, or missing the key concept
+- Ignore minor spelling mistakes, capitalisation, or punctuation differences
 
 Respond with ONLY the digit 1 or 0. Nothing else.`;
     const result = await callAI(prompt, 200);
